@@ -3,13 +3,19 @@ import { FrigateConfig } from "@/types/frigateConfig";
 import { NavData } from "@/types/navigation";
 import { useMemo } from "react";
 import { isDesktop } from "react-device-detect";
-import { FaCompactDisc, FaVideo } from "react-icons/fa";
-import { IoSearch } from "react-icons/io5";
-import { LuConstruction } from "react-icons/lu";
-import { MdCategory, MdChat, MdVideoLibrary } from "react-icons/md";
-import { TbFaceId } from "react-icons/tb";
+import {
+  Clock3,
+  Construction,
+  Download,
+  MessageSquare,
+  Monitor,
+  ScanFace,
+  Search,
+  Shapes,
+} from "lucide-react";
 import useSWR from "swr";
 import { useIsAdmin } from "./use-is-admin";
+import { ReviewSegment } from "@/types/review";
 
 export const ID_LIVE = 1;
 export const ID_REVIEW = 2;
@@ -26,6 +32,14 @@ export default function useNavigation(
   const { data: config } = useSWR<FrigateConfig>("config", {
     revalidateOnFocus: false,
   });
+  const { data: unreviewedAlerts } = useSWR<ReviewSegment[]>([
+    "review",
+    {
+      limit: 10,
+      severity: "alert",
+      reviewed: 0,
+    },
+  ]);
   const isAdmin = useIsAdmin();
 
   const hasChatAgent = useMemo(
@@ -42,35 +56,40 @@ export default function useNavigation(
         {
           id: ID_LIVE,
           variant,
-          icon: FaVideo,
+          icon: Monitor,
           title: "menu.live.title",
+          label: "Cameras",
           url: "/",
         },
         {
           id: ID_REVIEW,
           variant,
-          icon: MdVideoLibrary,
+          icon: Clock3,
           title: "menu.review",
+          label: "Events",
           url: "/review",
+          badge: unreviewedAlerts?.length,
         },
         {
           id: ID_EXPLORE,
           variant,
-          icon: IoSearch,
+          icon: Search,
           title: "menu.explore",
+          label: "Search",
           url: "/explore",
         },
         {
           id: ID_EXPORT,
           variant,
-          icon: FaCompactDisc,
+          icon: Download,
           title: "menu.export",
+          label: "Exports",
           url: "/export",
         },
         {
           id: ID_PLAYGROUND,
           variant,
-          icon: LuConstruction,
+          icon: Construction,
           title: "menu.uiPlayground",
           url: "/playground",
           enabled: ENV !== "production",
@@ -78,7 +97,7 @@ export default function useNavigation(
         {
           id: ID_FACE_LIBRARY,
           variant,
-          icon: TbFaceId,
+          icon: ScanFace,
           title: "menu.faceLibrary",
           url: "/faces",
           enabled: isDesktop && config?.face_recognition.enabled && isAdmin,
@@ -86,7 +105,7 @@ export default function useNavigation(
         {
           id: ID_CLASSIFICATION,
           variant,
-          icon: MdCategory,
+          icon: Shapes,
           title: "menu.classification",
           url: "/classification",
           enabled: isDesktop && isAdmin,
@@ -94,12 +113,18 @@ export default function useNavigation(
         {
           id: ID_CHAT,
           variant,
-          icon: MdChat,
+          icon: MessageSquare,
           title: "menu.chat",
           url: "/chat",
           enabled: isDesktop && isAdmin && hasChatAgent,
         },
       ] as NavData[],
-    [config?.face_recognition?.enabled, hasChatAgent, variant, isAdmin],
+    [
+      config?.face_recognition?.enabled,
+      hasChatAgent,
+      variant,
+      isAdmin,
+      unreviewedAlerts?.length,
+    ],
   );
 }

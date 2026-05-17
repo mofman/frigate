@@ -10,17 +10,20 @@ import ActivityIndicator from "../indicators/activity-indicator";
 
 const variants = {
   primary: {
-    active: "font-bold text-white bg-selected rounded-lg",
-    inactive: "text-secondary-foreground bg-secondary rounded-lg",
+    active:
+      "border border-[#5aa7ff]/35 bg-[#131820] text-[#5aa7ff] hover:border-[#5aa7ff]/50 hover:bg-[#19212b]",
+    inactive:
+      "border border-[rgba(203,213,225,0.11)] bg-[#131820] text-[#647184] hover:border-[rgba(169,182,186,0.28)] hover:bg-[#222c38] hover:text-slate-100",
     disabled:
-      "text-secondary-foreground bg-secondary rounded-lg cursor-not-allowed opacity-50",
+      "cursor-not-allowed border border-[rgba(203,213,225,0.08)] bg-[#11161d] text-[#647184] opacity-45",
   },
   overlay: {
-    active: "font-bold text-white bg-selected rounded-full",
+    active:
+      "border border-[#5aa7ff]/35 bg-[rgba(19,24,32,0.82)] text-[#5aa7ff] backdrop-blur-xl hover:border-[#5aa7ff]/50 hover:bg-[#19212b]",
     inactive:
-      "text-primary rounded-full bg-gradient-to-br from-gray-400 to-gray-500 bg-gray-500",
+      "border border-[rgba(203,213,225,0.11)] bg-[rgba(19,24,32,0.82)] text-[#647184] backdrop-blur-xl hover:border-[rgba(169,182,186,0.28)] hover:bg-[#222c38] hover:text-slate-100",
     disabled:
-      "bg-gradient-to-br from-gray-400 to-gray-500 bg-gray-500 rounded-full cursor-not-allowed opacity-50",
+      "cursor-not-allowed border border-[rgba(203,213,225,0.08)] bg-[rgba(17,22,29,0.72)] text-[#647184] opacity-45",
   },
 };
 
@@ -49,7 +52,7 @@ export default function CameraFeatureToggle({
     <div
       onClick={disabled ? undefined : onClick}
       className={cn(
-        "flex flex-col items-center justify-center",
+        "flex h-[34px] w-[34px] flex-col items-center justify-center rounded-[4px] transition-colors",
         disabled
           ? variants[variant].disabled
           : variants[variant][isActive ? "active" : "inactive"],
@@ -61,12 +64,12 @@ export default function CameraFeatureToggle({
       ) : (
         <Icon
           className={cn(
-            "size-5 md:m-[6px]",
+            "size-4",
             disabled
-              ? "text-gray-400"
+              ? "text-[#647184]"
               : isActive
-                ? "text-white"
-                : "text-secondary-foreground",
+                ? "text-current"
+                : "text-current",
           )}
         />
       )}

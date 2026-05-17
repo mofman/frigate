@@ -3,13 +3,11 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Wrapper from "@/components/Wrapper";
 import Sidebar from "@/components/navigation/Sidebar";
 
-import { isDesktop, isMobile } from "react-device-detect";
 import Statusbar from "./components/Statusbar";
 import Bottombar from "./components/navigation/Bottombar";
 import { Suspense, lazy } from "react";
 import { Redirect } from "./components/navigation/Redirect";
 import { cn } from "./lib/utils";
-import { isPWA } from "./utils/isPWA";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import useSWR from "swr";
 import { FrigateConfig } from "./types/frigateConfig";
@@ -70,16 +68,14 @@ function DefaultAppView() {
 
   return (
     <div className="size-full overflow-hidden">
-      {isDesktop && <Sidebar />}
-      {isDesktop && <Statusbar />}
-      {isMobile && <Bottombar />}
+      <Sidebar />
+      <Statusbar />
+      <Bottombar />
       <div
         id="pageRoot"
         className={cn(
           "absolute right-0 top-0 overflow-hidden",
-          isMobile
-            ? `bottom-${isPWA ? 16 : 12} left-0 md:bottom-16 landscape:bottom-14 landscape:md:bottom-16`
-            : "bottom-8 left-[52px]",
+          "bottom-0 left-0 md:bottom-10 md:left-[72px]",
         )}
       >
         <Suspense

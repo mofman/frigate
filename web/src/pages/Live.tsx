@@ -175,6 +175,7 @@ function Live() {
           cameraGroup={cameraGroup ?? "default"}
           includeBirdseye={includesBirdseye}
           onSelectCamera={setSelectedCameraName}
+          supportsFullscreen={supportsFullScreen}
           fullscreen={fullscreen}
           toggleFullscreen={toggleFullscreen}
         />

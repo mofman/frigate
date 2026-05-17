@@ -6,8 +6,12 @@ import { FrigateStats } from "@/types/stats";
 import { useEmbeddingsReindexProgress, useFrigateStats } from "@/api/ws";
 import { useContext, useEffect, useMemo } from "react";
 import useStats from "@/hooks/use-stats";
-import GeneralSettings from "../menu/GeneralSettings";
-import useNavigation from "@/hooks/use-navigation";
+import useNavigation, {
+  ID_EXPLORE,
+  ID_EXPORT,
+  ID_LIVE,
+  ID_REVIEW,
+} from "@/hooks/use-navigation";
 import {
   StatusBarMessagesContext,
   StatusMessage,
@@ -17,25 +21,62 @@ import { cn } from "@/lib/utils";
 import { isIOS, isMobile } from "react-device-detect";
 import { isPWA } from "@/utils/isPWA";
 import { useTranslation } from "react-i18next";
+import { Bell, Tags } from "lucide-react";
+import { NavData } from "@/types/navigation";
 
 function Bottombar() {
   const navItems = useNavigation("secondary");
+  const staticNavItems = useMemo<NavData[]>(() => {
+    const linkMap = new Map(navItems.map((item) => [item.id, item]));
+    const live = linkMap.get(ID_LIVE);
+    const review = linkMap.get(ID_REVIEW);
+    const explore = linkMap.get(ID_EXPLORE);
+    const exportLink = linkMap.get(ID_EXPORT);
+
+    return [
+      live,
+      review,
+      explore,
+      {
+        id: 100,
+        variant: "secondary",
+        icon: Bell,
+        title: "Alerts",
+        label: "Alerts",
+        url: "/review",
+      },
+      exportLink,
+      {
+        id: 101,
+        variant: "secondary",
+        icon: Tags,
+        title: "Labels",
+        label: "Labels",
+        url: "/explore",
+      },
+    ].filter(Boolean) as NavData[];
+  }, [navItems]);
 
   return (
     <div
       className={cn(
-        "absolute inset-x-4 bottom-0 flex h-16 flex-row justify-between",
+        "absolute inset-x-0 bottom-0 z-20 flex h-16 flex-row items-center justify-around border-t border-[rgba(203,213,225,0.11)] bg-[linear-gradient(180deg,rgba(12,12,22,0.58),rgba(12,12,22,0.82))] px-2 shadow-[0_-18px_38px_rgba(18,24,38,0.24)] backdrop-blur-xl md:hidden",
         isPWA && isIOS
           ? "portrait:items-start portrait:pt-1 landscape:items-center"
           : "items-center",
-        isMobile && !isPWA && "h-12 md:h-16",
+        isMobile && !isPWA && "h-16",
       )}
     >
-      {navItems.map((item) => (
-        <NavItem key={item.id} className="p-2" item={item} Icon={item.icon} />
+      {staticNavItems.map((item) => (
+        <NavItem
+          key={item.id}
+          className="h-14 w-14 p-0"
+          item={item}
+          Icon={item.icon}
+          disableTooltip
+        />
       ))}
-      <GeneralSettings className="p-2" />
-      <StatusAlertNav className="p-2" />
+      <StatusAlertNav className="hidden" />
     </div>
   );
 }

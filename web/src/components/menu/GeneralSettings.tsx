@@ -15,6 +15,7 @@ import {
   LuSun,
   LuSunMoon,
 } from "react-icons/lu";
+import { Settings } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -82,9 +83,13 @@ import { MdCategory } from "react-icons/md";
 
 type GeneralSettingsProps = {
   className?: string;
+  showLabel?: boolean;
 };
 
-export default function GeneralSettings({ className }: GeneralSettingsProps) {
+export default function GeneralSettings({
+  className,
+  showLabel = false,
+}: GeneralSettingsProps) {
   const { t } = useTranslation(["common", "views/settings"]);
   const { getLocaleDocUrl } = useDocDomain();
   const { data: profile } = useSWR("profile");
@@ -220,14 +225,35 @@ export default function GeneralSettings({ className }: GeneralSettingsProps) {
             <TooltipTrigger asChild>
               <div
                 className={cn(
-                  "flex flex-col items-center justify-center",
+                  "flex flex-col items-center justify-center gap-1",
                   isDesktop
-                    ? "cursor-pointer rounded-lg bg-secondary text-secondary-foreground hover:bg-muted"
+                    ? showLabel
+                      ? "h-[58px] w-[52px] cursor-pointer text-center text-[#647184] transition-colors hover:text-slate-100"
+                      : "cursor-pointer rounded-lg bg-secondary text-secondary-foreground hover:bg-muted"
                     : "text-secondary-foreground",
                   className,
                 )}
               >
-                <LuSettings className="size-5 md:m-[6px]" />
+                <Settings
+                  className={cn(
+                    "size-[22px] stroke-2",
+                    !showLabel && "md:m-[6px]",
+                  )}
+                />
+                {showLabel && (
+                  <span
+                    className="whitespace-nowrap"
+                    style={{
+                      fontFamily: "Inter, sans-serif",
+                      fontSize: 12,
+                      fontWeight: 500,
+                      letterSpacing: "0.02em",
+                      lineHeight: "normal",
+                    }}
+                  >
+                    Settings
+                  </span>
+                )}
               </div>
             </TooltipTrigger>
             <TooltipPortal>

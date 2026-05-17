@@ -14,7 +14,6 @@ import useSWR from "swr";
 
 import { FaCheck } from "react-icons/fa";
 import { IoIosWarning } from "react-icons/io";
-import { MdCircle } from "react-icons/md";
 import { Link } from "react-router-dom";
 
 export default function Statusbar() {
@@ -36,6 +35,59 @@ export default function Statusbar() {
 
     return parseInt(systemCpu);
   }, [stats]);
+
+  const gpuPercent = useMemo(() => {
+    const entries = Object.entries(stats?.gpu_usages || {}).filter(
+      ([name]) => name !== "error-gpu",
+    );
+    const firstGpu = entries
+      .map(([_, gpuStats]) => parseInt(gpuStats.gpu))
+      .find((gpu) => !isNaN(gpu));
+
+    return firstGpu ?? null;
+  }, [stats]);
+
+  const storagePercent = useMemo(() => {
+    const storage = stats?.service.storage;
+    if (!storage) {
+      return null;
+    }
+
+    const storageStats =
+      storage["/media/frigate"] ??
+      Object.entries(storage).find(([path]) => path !== "/dev/shm")?.[1];
+
+    if (!storageStats?.total) {
+      return null;
+    }
+
+    return Math.round((storageStats.used / storageStats.total) * 100);
+  }, [stats]);
+
+  const uptime = useMemo(() => {
+    const seconds = stats?.service.uptime;
+    if (!seconds) {
+      return null;
+    }
+
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+
+    if (days > 0) {
+      return `${days}d ${hours}h`;
+    }
+
+    return `${hours}h`;
+  }, [stats]);
+
+  const statusDate = useMemo(
+    () =>
+      new Intl.DateTimeFormat(undefined, {
+        dateStyle: "short",
+        timeStyle: "short",
+      }).format(new Date()),
+    [],
+  );
 
   const { potentialProblems } = useStats(stats);
 
@@ -90,79 +142,43 @@ export default function Statusbar() {
   }, [reindexState, addMessage, clearMessages, t]);
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 z-10 flex h-8 w-full items-center justify-between border-t border-secondary-highlight bg-background_alt px-4 dark:text-secondary-foreground">
-      <div className="flex h-full items-center gap-2">
+    <div className="absolute bottom-0 left-[72px] right-0 z-10 hidden h-10 items-center justify-between border-t border-white/10 bg-[#0a0e11] px-5 text-slate-400 md:flex">
+      <div className="flex h-full min-w-0 items-center gap-2.5">
         {cpuPercent && (
           <Link to="/system#general">
-            <div className="flex cursor-pointer items-center gap-2 text-sm hover:underline">
-              <MdCircle
-                className={`size-2 ${
-                  cpuPercent < 50
-                    ? "text-success"
-                    : cpuPercent < 80
-                      ? "text-orange-400"
-                      : "text-danger"
-                }`}
-              />
-              CPU {cpuPercent}%
-            </div>
+            <StatusChip
+              label="CPU"
+              value={`${cpuPercent}%`}
+              level={cpuPercent}
+            />
           </Link>
         )}
-        {Object.entries(stats?.gpu_usages || {}).map(([name, stats]) => {
-          if (name == "error-gpu") {
-            return;
-          }
-
-          let gpuTitle;
-          switch (name) {
-            case "amd-vaapi":
-              gpuTitle = "AMD GPU";
-              break;
-            case "intel-gpu":
-              gpuTitle = "Intel GPU";
-              break;
-            case "rockchip":
-              gpuTitle = "Rockchip GPU";
-              break;
-            default:
-              gpuTitle = name;
-              break;
-          }
-
-          const gpu = parseInt(stats.gpu);
-
-          if (isNaN(gpu)) {
-            return;
-          }
-
-          return (
-            <Link key={name} to="/system#general">
-              {" "}
-              <div
-                key={name}
-                className="flex cursor-pointer items-center gap-2 text-sm hover:underline"
-              >
-                <MdCircle
-                  className={`size-2 ${
-                    gpu < 50
-                      ? "text-success"
-                      : gpu < 80
-                        ? "text-orange-400"
-                        : "text-danger"
-                  }`}
-                />
-                {gpuTitle} {gpu}%
-              </div>
-            </Link>
-          );
-        })}
+        {gpuPercent !== null && (
+          <Link to="/system#general">
+            <StatusChip
+              label="GPU"
+              value={`${gpuPercent}%`}
+              level={gpuPercent}
+            />
+          </Link>
+        )}
+        {storagePercent !== null && (
+          <Link to="/system#storage">
+            <StatusChip
+              label="Storage"
+              value={`${storagePercent}%`}
+              level={storagePercent}
+            />
+          </Link>
+        )}
+        {uptime && <StatusChip label="Uptime" value={uptime} />}
         {activeProfile &&
           (isAdmin ? (
             <Link to="/settings?page=profiles">
-              <div className="flex cursor-pointer items-center gap-2 text-sm hover:underline">
+              <div className="hidden cursor-pointer items-center gap-1.5 rounded border border-white/10 bg-[#131820] px-2.5 py-[3px] text-[11px] leading-none hover:bg-[#19212b] xl:flex">
                 <span
                   className={cn(
-                    "size-2 shrink-0 rounded-full",
+                    "size-1.5 shrink-0 rounded-full",
                     activeProfile.color.dot,
                   )}
                 />
@@ -172,10 +188,10 @@ export default function Statusbar() {
               </div>
             </Link>
           ) : (
-            <div className="flex items-center gap-2 text-sm">
+            <div className="hidden items-center gap-1.5 rounded border border-white/10 bg-[#131820] px-2.5 py-[3px] text-[11px] leading-none xl:flex">
               <span
                 className={cn(
-                  "size-2 shrink-0 rounded-full",
+                  "size-1.5 shrink-0 rounded-full",
                   activeProfile.color.dot,
                 )}
               />
@@ -185,10 +201,10 @@ export default function Statusbar() {
             </div>
           ))}
       </div>
-      <div className="no-scrollbar flex h-full max-w-[50%] items-center gap-2 overflow-x-auto">
+      <div className="no-scrollbar flex h-full max-w-[50%] items-center gap-3 overflow-x-auto">
         {Object.entries(messages).length === 0 ? (
-          <div className="flex items-center gap-2 text-sm">
-            <FaCheck className="size-3 text-green-500" />
+          <div className="flex items-center gap-2 text-xs font-medium text-sky-300">
+            <FaCheck className="size-3 drop-shadow" />
             {t("stats.healthy")}
           </div>
         ) : (
@@ -198,7 +214,7 @@ export default function Statusbar() {
                 const message = (
                   <div
                     key={text}
-                    className={`flex items-center gap-2 whitespace-nowrap text-sm ${link ? "cursor-pointer hover:underline" : ""}`}
+                    className={`flex items-center gap-2 whitespace-nowrap text-xs ${link ? "cursor-pointer hover:underline" : ""}`}
                   >
                     <IoIosWarning
                       className={`size-5 ${color || "text-danger"}`}
@@ -220,7 +236,41 @@ export default function Statusbar() {
             </div>
           ))
         )}
+        <span className="hidden font-mono text-[11px] text-slate-600 md:block">
+          {statusDate}
+        </span>
       </div>
+    </div>
+  );
+}
+
+function StatusChip({
+  label,
+  value,
+  level,
+}: {
+  label: string;
+  value: string;
+  level?: number;
+}) {
+  const dotColor =
+    level == undefined
+      ? "bg-sky-300 shadow-sky-300/30"
+      : level < 50
+        ? "bg-sky-300 shadow-sky-300/30"
+        : level < 80
+          ? "bg-amber-400 shadow-amber-400/30"
+          : "bg-red-500 shadow-red-500/30";
+
+  return (
+    <div className="flex cursor-pointer items-center gap-1.5 rounded border border-white/10 bg-[#131820] px-2.5 py-[3px] leading-none hover:bg-[#19212b]">
+      <span className={cn("size-1.5 rounded-full shadow", dotColor)} />
+      <span className="hidden text-[10px] font-medium uppercase tracking-[0.04em] text-slate-500 sm:inline">
+        {label}
+      </span>
+      <span className="font-mono text-[11px] font-medium text-slate-300">
+        {value}
+      </span>
     </div>
   );
 }

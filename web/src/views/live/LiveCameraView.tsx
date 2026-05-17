@@ -524,38 +524,41 @@ export default function LiveCameraView({
       <Toaster position="top-center" closeButton={true} />
       <div
         ref={mainRef}
-        className={
+        className={cn(
           fullscreen
-            ? `fixed inset-0 z-30 bg-black`
-            : `flex size-full flex-col p-2 ${isMobile ? "landscape:flex-row landscape:gap-1" : ""}`
-        }
+            ? "fixed inset-0 z-30 bg-black"
+            : "flex size-full flex-col bg-[#050607]",
+          !fullscreen && isMobile && "landscape:flex-row",
+        )}
       >
         <div
-          className={
+          className={cn(
             fullscreen
-              ? `absolute right-32 top-1 z-40 ${isMobile ? "landscape:bottom-1 landscape:left-2 landscape:right-auto landscape:top-auto" : ""}`
-              : `flex h-12 w-full flex-row items-center justify-between ${isMobile ? "landscape:h-full landscape:w-12 landscape:flex-col" : ""}`
-          }
+              ? "absolute right-32 top-1 z-40"
+              : "flex shrink-0 flex-row items-center justify-between border-b border-[rgba(203,213,225,0.11)] bg-[rgba(13,17,20,0.82)] px-4 py-[14px] backdrop-blur-xl md:px-6",
+            fullscreen &&
+              isMobile &&
+              "landscape:bottom-1 landscape:left-2 landscape:right-auto landscape:top-auto",
+            !fullscreen &&
+              isMobile &&
+              "landscape:h-full landscape:w-20 landscape:flex-col landscape:border-b-0 landscape:border-r landscape:px-2 landscape:py-4",
+          )}
         >
           {!fullscreen ? (
             <div
               className={`flex items-center gap-2 ${isMobile ? "landscape:flex-col" : ""}`}
             >
               <Button
-                className={`flex items-center gap-2.5 rounded-lg`}
+                className="flex h-[34px] items-center gap-2 rounded-[4px] border border-[rgba(203,213,225,0.11)] bg-[#131820] px-3 text-sm font-medium text-slate-200 transition-colors hover:border-[rgba(169,182,186,0.28)] hover:bg-[#222c38] hover:text-slate-100"
                 aria-label={t("label.back", { ns: "common" })}
                 size="sm"
                 onClick={() => navigate(-1)}
               >
-                <IoMdArrowRoundBack className="size-5 text-secondary-foreground" />
-                {isDesktop && (
-                  <div className="text-primary">
-                    {t("button.back", { ns: "common" })}
-                  </div>
-                )}
+                <IoMdArrowRoundBack className="size-4 text-[#647184]" />
+                {isDesktop && <div>{t("button.back", { ns: "common" })}</div>}
               </Button>
               <Button
-                className="flex items-center gap-2.5 rounded-lg"
+                className="flex h-[34px] items-center gap-2 rounded-[4px] border border-[rgba(203,213,225,0.11)] bg-[#131820] px-3 text-sm font-medium text-slate-200 transition-colors hover:border-[rgba(169,182,186,0.28)] hover:bg-[#222c38] hover:text-slate-100"
                 aria-label={t("history.label")}
                 size="sm"
                 onClick={() => {
@@ -571,11 +574,9 @@ export default function LiveCameraView({
                   });
                 }}
               >
-                <LuHistory className="size-5 text-secondary-foreground" />
+                <LuHistory className="size-4 text-[#647184]" />
                 {isDesktop && (
-                  <div className="text-primary">
-                    {t("button.history", { ns: "common" })}
-                  </div>
+                  <div>{t("button.history", { ns: "common" })}</div>
                 )}
               </Button>
             </div>
@@ -583,21 +584,17 @@ export default function LiveCameraView({
             <div />
           )}
           <div
-            className={`flex flex-row items-center gap-2 *:rounded-lg ${isMobile ? "landscape:flex-col" : ""}`}
+            className={`flex flex-row items-center gap-2 ${isMobile ? "landscape:flex-col" : ""}`}
           >
             {fullscreen && (
               <Button
-                className="bg-gray-500 bg-gradient-to-br from-gray-400 to-gray-500 text-primary"
+                className="flex h-[34px] items-center gap-2 rounded-[4px] border border-[rgba(203,213,225,0.11)] bg-[rgba(19,24,32,0.82)] px-3 text-sm font-medium text-slate-200 backdrop-blur-xl transition-colors hover:border-[rgba(169,182,186,0.28)] hover:bg-[#222c38] hover:text-slate-100"
                 aria-label={t("label.back", { ns: "common" })}
                 size="sm"
                 onClick={() => navigate(-1)}
               >
-                <IoMdArrowRoundBack className="size-5 text-secondary-foreground" />
-                {isDesktop && (
-                  <div className="text-secondary-foreground">
-                    {t("button.back", { ns: "common" })}
-                  </div>
-                )}
+                <IoMdArrowRoundBack className="size-4 text-[#647184]" />
+                {isDesktop && <div>{t("button.back", { ns: "common" })}</div>}
               </Button>
             )}
             {supportsFullscreen && (
@@ -699,7 +696,11 @@ export default function LiveCameraView({
           </div>
         </div>
         {!debug ? (
-          <div id="player-container" className="size-full" ref={containerRef}>
+          <div
+            id="player-container"
+            className="min-h-0 flex-1"
+            ref={containerRef}
+          >
             <TransformComponent
               wrapperStyle={{
                 width: "100%",
@@ -709,12 +710,13 @@ export default function LiveCameraView({
                 position: "relative",
                 width: "100%",
                 height: "100%",
-                padding: "8px",
+                padding: fullscreen ? "0" : "22px 28px",
               }}
             >
               <div
                 className={cn(
-                  "flex flex-col items-center justify-center",
+                  "relative flex flex-col items-center justify-center",
+                  !fullscreen && "overflow-hidden rounded-lg",
                   growClassName,
                 )}
                 ref={clickOverlayRef}
@@ -777,6 +779,9 @@ export default function LiveCameraView({
                   setFullResolution={setFullResolution}
                   onError={handleError}
                 />
+                {!fullscreen && (
+                  <div className="pointer-events-none absolute inset-0 z-30 bg-[linear-gradient(180deg,rgba(5,8,10,0.48)_0%,rgba(5,8,10,0.18)_14%,transparent_32%,transparent_68%,rgba(5,8,10,0.44)_100%)]" />
+                )}
               </div>
             </TransformComponent>
             {camera?.audio?.enabled_in_config &&
@@ -1176,12 +1181,10 @@ function FrigateCameraFeatures({
             <DropdownMenuTrigger>
               <div
                 className={cn(
-                  "flex flex-col items-center justify-center rounded-lg bg-secondary p-2 text-secondary-foreground md:p-0",
+                  "flex h-[34px] w-[34px] flex-col items-center justify-center rounded-[4px] border border-[rgba(203,213,225,0.11)] bg-[#131820] text-[#647184] transition-colors hover:border-[rgba(169,182,186,0.28)] hover:bg-[#222c38] hover:text-slate-100",
                 )}
               >
-                <FaCog
-                  className={`text-secondary-foreground" size-5 md:m-[6px]`}
-                />
+                <FaCog className="size-4 text-current" />
               </div>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="max-w-96">

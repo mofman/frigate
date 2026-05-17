@@ -1,18 +1,4 @@
 import { useFrigateReviews } from "@/api/ws";
-import Logo from "@/components/Logo";
-import { CameraGroupSelector } from "@/components/filter/CameraGroupSelector";
-import { LiveGridIcon, LiveListIcon } from "@/components/icons/LiveIcons";
-import { AnimatedEventCard } from "@/components/card/AnimatedEventCard";
-import BirdseyeLivePlayer from "@/components/player/BirdseyeLivePlayer";
-import LivePlayer from "@/components/player/LivePlayer";
-import { Button } from "@/components/ui/button";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useUserPersistence } from "@/hooks/use-user-persistence";
 import {
   AllGroupsStreamingSettings,
@@ -28,16 +14,9 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  isDesktop,
-  isMobile,
-  isMobileOnly,
-  isTablet,
-} from "react-device-detect";
+import { isDesktop, isMobileOnly } from "react-device-detect";
 import useSWR from "swr";
 import DraggableGridLayout from "./DraggableGridLayout";
-import { IoClose } from "react-icons/io5";
-import { LuLayoutDashboard } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import {
   AudioState,
@@ -45,22 +24,26 @@ import {
   StatsState,
   VolumeState,
 } from "@/types/live";
-import { FaCompress, FaExpand } from "react-icons/fa";
 import useCameraLiveMode from "@/hooks/use-camera-live-mode";
-import { useResizeObserver } from "@/hooks/resize-observer";
-import LiveContextMenu from "@/components/menu/LiveContextMenu";
 import { useStreamingSettings } from "@/context/streaming-settings-provider";
 import { useTranslation } from "react-i18next";
 import { EmptyCard } from "@/components/card/EmptyCard";
 import { BsFillCameraVideoOffFill } from "react-icons/bs";
 import { AuthContext } from "@/context/auth-context";
 import { useIsAdmin } from "@/hooks/use-is-admin";
+import LiveDashboardHeader from "./LiveDashboardHeader";
+import LiveDashboardActivityPanel from "./LiveDashboardActivityPanel";
+import {
+  LiveDashboardBirdseyeTile,
+  LiveDashboardCameraTile,
+} from "./LiveDashboardCameraTile";
 
 type LiveDashboardViewProps = {
   cameras: CameraConfig[];
   cameraGroup: string;
   includeBirdseye: boolean;
   onSelectCamera: (camera: string) => void;
+  supportsFullscreen: boolean;
   fullscreen: boolean;
   toggleFullscreen: () => void;
 };
@@ -69,16 +52,15 @@ export default function LiveDashboardView({
   cameraGroup,
   includeBirdseye,
   onSelectCamera,
+  supportsFullscreen,
   fullscreen,
   toggleFullscreen,
 }: LiveDashboardViewProps) {
-  const { t } = useTranslation(["views/live"]);
-
   const { data: config } = useSWR<FrigateConfig>("config");
 
   // layout
 
-  const [mobileLayout, setMobileLayout] = useUserPersistence<"grid" | "list">(
+  const [mobileLayout] = useUserPersistence<"grid" | "list">(
     "live-layout",
     isDesktop ? "grid" : "list",
   );
@@ -120,7 +102,6 @@ export default function LiveDashboardView({
     "review",
     {
       limit: 10,
-      severity: "alert",
       reviewed: 0,
       cameras: alertCameras,
     },
@@ -131,25 +112,17 @@ export default function LiveDashboardView({
       return;
     }
 
-    // if event is ended and was saved, update events list
-    if (eventUpdate.after.severity == "alert") {
-      if (
-        eventUpdate.type == "end" ||
-        eventUpdate.type == "new" ||
-        eventUpdate.type == "genai"
-      ) {
-        setTimeout(
-          () => updateEvents(),
-          eventUpdate.type == "end" ? 1000 : 6000,
-        );
-      } else if (
-        eventUpdate.before.data.objects.length <
-        eventUpdate.after.data.objects.length
-      ) {
-        setTimeout(() => updateEvents(), 5000);
-      }
-
-      return;
+    if (
+      eventUpdate.type == "end" ||
+      eventUpdate.type == "new" ||
+      eventUpdate.type == "genai"
+    ) {
+      setTimeout(() => updateEvents(), eventUpdate.type == "end" ? 1000 : 6000);
+    } else if (
+      eventUpdate.before.data.objects.length <
+      eventUpdate.after.data.objects.length
+    ) {
+      setTimeout(() => updateEvents(), 5000);
     }
   }, [eventUpdate, updateEvents]);
 
@@ -158,23 +131,10 @@ export default function LiveDashboardView({
       return [];
     }
 
-    const date = new Date();
-    date.setHours(date.getHours() - 1);
-    const cutoff = date.getTime() / 1000;
-    return allEvents.filter((event) => event.start_time > cutoff);
+    return allEvents.slice(0, 10);
   }, [allEvents]);
 
   // camera live views
-
-  const [{ height: containerHeight }] = useResizeObserver(containerRef);
-
-  const hasScrollbar = useMemo(() => {
-    if (containerHeight && containerRef.current) {
-      return (
-        containerRef.current.offsetHeight < containerRef.current.scrollHeight
-      );
-    }
-  }, [containerRef, containerHeight]);
 
   const [windowVisible, setWindowVisible] = useState(true);
   const visibilityListener = useCallback(() => {
@@ -394,281 +354,145 @@ export default function LiveDashboardView({
 
   return (
     <div
-      className="scrollbar-container size-full select-none overflow-y-auto px-1 pt-2 md:p-2"
+      className="flex size-full select-none flex-col overflow-y-auto overflow-x-hidden pb-16 text-slate-100 md:overflow-hidden md:pb-0"
       ref={containerRef}
+      style={{
+        background:
+          "radial-gradient(circle at 48% -20%, rgba(90, 167, 255, 0.09), transparent 34%), linear-gradient(180deg, rgba(18, 24, 32, 0.98), #08090b 46%), #08090b",
+      }}
     >
-      {isMobile && (
-        <div className="relative flex h-11 items-center justify-between">
-          <Logo className="absolute inset-x-1/2 h-8 -translate-x-1/2" />
-          <div className="max-w-[45%]">
-            <CameraGroupSelector />
-          </div>
-          {(!cameraGroup || cameraGroup == "default" || isMobileOnly) && (
-            <div className="flex items-center gap-1">
-              <Button
-                className={`p-1 ${
-                  mobileLayout == "grid"
-                    ? "bg-blue-900 bg-opacity-60 focus:bg-blue-900 focus:bg-opacity-60"
-                    : "bg-secondary"
-                }`}
-                aria-label="Use mobile grid layout"
-                size="xs"
-                onClick={() => setMobileLayout("grid")}
-              >
-                <LiveGridIcon layout={mobileLayout} />
-              </Button>
-              <Button
-                className={`p-1 ${
-                  mobileLayout == "list"
-                    ? "bg-blue-900 bg-opacity-60 focus:bg-blue-900 focus:bg-opacity-60"
-                    : "bg-secondary"
-                }`}
-                aria-label="Use mobile list layout"
-                size="xs"
-                onClick={() => setMobileLayout("list")}
-              >
-                <LiveListIcon layout={mobileLayout} />
-              </Button>
-            </div>
-          )}
-          {cameraGroup && cameraGroup !== "default" && isTablet && (
-            <div className="flex items-center gap-1">
-              <Button
-                className={cn(
-                  "p-1",
-                  isEditMode
-                    ? "bg-selected text-primary"
-                    : "bg-secondary text-secondary-foreground",
-                )}
-                aria-label="Enter layout editing mode"
-                size="xs"
-                onClick={() =>
-                  setIsEditMode((prevIsEditMode) => !prevIsEditMode)
-                }
-              >
-                {isEditMode ? <IoClose /> : <LuLayoutDashboard />}
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
-
       {cameras.length == 0 && !includeBirdseye ? (
         <NoCameraView cameraGroup={cameraGroup} />
-      ) : (
-        <>
-          {!fullscreen && events && events.length > 0 && (
-            <ScrollArea>
-              <TooltipProvider>
-                <div className="flex items-center gap-2 px-1">
-                  {events.map((event) => {
-                    return (
-                      <AnimatedEventCard
-                        key={event.id}
-                        event={event}
-                        selectedGroup={cameraGroup}
-                        updateEvents={updateEvents}
-                      />
-                    );
-                  })}
-                </div>
-              </TooltipProvider>
-              <ScrollBar orientation="horizontal" />
-            </ScrollArea>
-          )}
-
-          {!cameraGroup || cameraGroup == "default" || isMobileOnly ? (
-            <>
+      ) : !cameraGroup || cameraGroup == "default" || isMobileOnly ? (
+        <div className="flex min-h-0 flex-1 flex-col md:overflow-hidden">
+          <LiveDashboardHeader
+            cameraCount={cameras.length + (includeBirdseye ? 1 : 0)}
+            fullscreen={fullscreen}
+            supportsFullscreen={supportsFullscreen}
+            toggleFullscreen={toggleFullscreen}
+          />
+          <div
+            className={cn(
+              "grid min-h-0 flex-1 grid-cols-1 overflow-visible max-[899px]:content-start md:overflow-hidden",
+              !fullscreen &&
+                "min-[900px]:grid-cols-[minmax(0,1fr)_240px] xl:grid-cols-[minmax(0,1fr)_300px]",
+            )}
+          >
+            {!fullscreen && (
+              <LiveDashboardActivityPanel
+                events={events}
+                selectedGroup={cameraGroup}
+              />
+            )}
+            <div className="scrollbar-container min-h-0 overflow-visible md:overflow-y-auto">
               <div
                 className={cn(
-                  "mt-2 grid grid-cols-1 gap-2 px-2 md:gap-4",
-                  mobileLayout == "grid" &&
-                    "grid-cols-2 xl:grid-cols-3 3xl:grid-cols-4",
-                  isMobile && "px-0",
+                  "grid grid-cols-1 content-start gap-2 p-2.5 md:grid-cols-2 md:gap-3 md:p-3 min-[900px]:p-4",
                 )}
               >
                 {includeBirdseye && birdseyeConfig?.enabled && (
-                  <div
+                  <LiveDashboardBirdseyeTile
                     className={(() => {
                       const aspectRatio =
                         birdseyeConfig.width / birdseyeConfig.height;
                       if (aspectRatio > 2) {
-                        return `${mobileLayout == "grid" && "col-span-2"} aspect-wide`;
+                        return cn(
+                          "aspect-video",
+                          mobileLayout == "grid" && "md:col-span-2",
+                          "md:aspect-wide",
+                        );
                       } else if (aspectRatio < 1) {
-                        return `${mobileLayout == "grid" && "row-span-2 h-full"} aspect-tall`;
+                        return cn(
+                          "aspect-video",
+                          mobileLayout == "grid" && "md:row-span-2 md:h-full",
+                          "md:aspect-tall",
+                        );
                       } else {
                         return "aspect-video";
                       }
                     })()}
-                    ref={birdseyeContainerRef}
-                  >
-                    <BirdseyeLivePlayer
-                      birdseyeConfig={birdseyeConfig}
-                      liveMode={birdseyeConfig.restream ? "mse" : "jsmpeg"}
-                      onClick={() => onSelectCamera("birdseye")}
-                      containerRef={birdseyeContainerRef}
-                    />
-                  </div>
+                    birdseyeConfig={birdseyeConfig}
+                    containerRef={birdseyeContainerRef}
+                    onSelectCamera={onSelectCamera}
+                  />
                 )}
                 {cameras.map((camera) => {
-                  let grow;
                   const aspectRatio =
                     camera.detect.width / camera.detect.height;
-                  if (aspectRatio > 2) {
-                    grow = `${mobileLayout == "grid" && "col-span-2"} aspect-wide`;
-                  } else if (aspectRatio < 1) {
-                    grow = `${mobileLayout == "grid" && "row-span-2 h-full"} aspect-tall`;
-                  } else {
-                    grow = "aspect-video";
-                  }
-                  const availableStreams = camera.live.streams || {};
-                  const firstStreamEntry =
-                    Object.values(availableStreams)[0] || "";
+                  const tileClass =
+                    aspectRatio > 2
+                      ? cn(
+                          "aspect-video",
+                          mobileLayout == "grid" && "md:col-span-2",
+                          "md:aspect-wide",
+                        )
+                      : aspectRatio < 1
+                        ? cn(
+                            "aspect-video",
+                            mobileLayout == "grid" && "md:row-span-2 md:h-full",
+                            "md:aspect-tall",
+                          )
+                        : "aspect-video";
 
-                  const streamNameFromSettings =
-                    currentGroupStreamingSettings?.[camera.name]?.streamName ||
-                    "";
-                  const streamExists =
-                    streamNameFromSettings &&
-                    Object.values(availableStreams).includes(
-                      streamNameFromSettings,
-                    );
-
-                  const streamName = streamExists
-                    ? streamNameFromSettings
-                    : firstStreamEntry;
-                  const streamType =
-                    currentGroupStreamingSettings?.[camera.name]?.streamType;
-                  const autoLive =
-                    streamType !== undefined
-                      ? streamType !== "no-streaming"
-                      : undefined;
-                  const showStillWithoutActivity =
-                    currentGroupStreamingSettings?.[camera.name]?.streamType !==
-                    "continuous";
-                  const useWebGL =
-                    currentGroupStreamingSettings?.[camera.name]
-                      ?.compatibilityMode || false;
                   return (
-                    <LiveContextMenu
-                      className={grow}
+                    <LiveDashboardCameraTile
                       key={camera.name}
-                      camera={camera.name}
+                      className={tileClass}
+                      camera={camera}
                       cameraGroup={cameraGroup}
-                      streamName={streamName}
+                      config={config}
+                      cameraRef={cameraRef}
+                      windowVisible={windowVisible}
+                      visible={visibleCameras.includes(camera.name)}
                       preferredLiveMode={
                         preferredLiveModes[camera.name] ?? "mse"
                       }
                       isRestreamed={isRestreamedStates[camera.name]}
-                      supportsAudio={
-                        supportsAudioOutputStates[streamName]?.supportsAudio ??
-                        false
+                      supportsAudioOutputStates={supportsAudioOutputStates}
+                      audioStates={audioStates}
+                      volumeStates={volumeStates}
+                      statsStates={statsStates}
+                      currentGroupStreamingSettings={
+                        currentGroupStreamingSettings
                       }
-                      audioState={audioStates[camera.name]}
-                      toggleAudio={() => toggleAudio(camera.name)}
-                      statsState={statsStates[camera.name]}
-                      toggleStats={() => toggleStats(camera.name)}
-                      volumeState={volumeStates[camera.name] ?? 1}
-                      setVolumeState={(value) =>
-                        setVolumeStates((prev) => ({
-                          ...prev,
-                          [camera.name]: value,
-                        }))
-                      }
+                      globalAutoLive={globalAutoLive ?? true}
+                      displayCameraNames={displayCameraNames ?? false}
+                      toggleAudio={toggleAudio}
+                      toggleStats={toggleStats}
+                      setVolumeStates={setVolumeStates}
                       muteAll={muteAll}
                       unmuteAll={unmuteAll}
-                      resetPreferredLiveMode={() =>
-                        resetPreferredLiveMode(camera.name)
-                      }
-                      config={config}
-                    >
-                      <LivePlayer
-                        cameraRef={cameraRef}
-                        key={camera.name}
-                        className={`${grow} rounded-lg bg-black md:rounded-2xl`}
-                        windowVisible={
-                          windowVisible && visibleCameras.includes(camera.name)
-                        }
-                        cameraConfig={camera}
-                        preferredLiveMode={
-                          preferredLiveModes[camera.name] ?? "mse"
-                        }
-                        autoLive={autoLive ?? globalAutoLive}
-                        showStillWithoutActivity={
-                          showStillWithoutActivity ?? true
-                        }
-                        alwaysShowCameraName={displayCameraNames}
-                        useWebGL={useWebGL}
-                        playInBackground={false}
-                        showStats={statsStates[camera.name]}
-                        streamName={streamName}
-                        onClick={() => onSelectCamera(camera.name)}
-                        onError={(e) => handleError(camera.name, e)}
-                        onResetLiveMode={() =>
-                          resetPreferredLiveMode(camera.name)
-                        }
-                        playAudio={audioStates[camera.name] ?? false}
-                        volume={volumeStates[camera.name]}
-                      />
-                    </LiveContextMenu>
+                      resetPreferredLiveMode={resetPreferredLiveMode}
+                      onSelectCamera={onSelectCamera}
+                      onError={handleError}
+                    />
                   );
                 })}
               </div>
-              {isDesktop && (
-                <div
-                  className={cn(
-                    "fixed",
-                    isDesktop && "bottom-12 lg:bottom-9",
-                    isMobile && "bottom-12 lg:bottom-16",
-                    hasScrollbar && isDesktop ? "right-6" : "right-3",
-                    "z-50 flex flex-row gap-2",
-                  )}
-                >
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div
-                        className="cursor-pointer rounded-lg bg-secondary text-secondary-foreground opacity-60 transition-all duration-300 hover:bg-muted hover:opacity-100"
-                        onClick={toggleFullscreen}
-                      >
-                        {fullscreen ? (
-                          <FaCompress className="size-5 md:m-[6px]" />
-                        ) : (
-                          <FaExpand className="size-5 md:m-[6px]" />
-                        )}
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {fullscreen
-                        ? t("button.exitFullscreen", { ns: "common" })
-                        : t("button.fullscreen", { ns: "common" })}
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-              )}
-            </>
-          ) : (
-            <DraggableGridLayout
-              cameras={cameras}
-              cameraGroup={cameraGroup}
-              containerRef={containerRef}
-              cameraRef={cameraRef}
-              includeBirdseye={includeBirdseye}
-              onSelectCamera={onSelectCamera}
-              windowVisible={windowVisible}
-              visibleCameras={visibleCameras}
-              isEditMode={isEditMode}
-              setIsEditMode={setIsEditMode}
-              fullscreen={fullscreen}
-              toggleFullscreen={toggleFullscreen}
-              preferredLiveModes={preferredLiveModes}
-              setPreferredLiveModes={setPreferredLiveModes}
-              resetPreferredLiveMode={resetPreferredLiveMode}
-              isRestreamedStates={isRestreamedStates}
-              supportsAudioOutputStates={supportsAudioOutputStates}
-              streamMetadata={streamMetadata}
-            />
-          )}
-        </>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <DraggableGridLayout
+          cameras={cameras}
+          cameraGroup={cameraGroup}
+          containerRef={containerRef}
+          cameraRef={cameraRef}
+          includeBirdseye={includeBirdseye}
+          onSelectCamera={onSelectCamera}
+          windowVisible={windowVisible}
+          visibleCameras={visibleCameras}
+          isEditMode={isEditMode}
+          setIsEditMode={setIsEditMode}
+          fullscreen={fullscreen}
+          toggleFullscreen={toggleFullscreen}
+          preferredLiveModes={preferredLiveModes}
+          setPreferredLiveModes={setPreferredLiveModes}
+          resetPreferredLiveMode={resetPreferredLiveMode}
+          isRestreamedStates={isRestreamedStates}
+          supportsAudioOutputStates={supportsAudioOutputStates}
+          streamMetadata={streamMetadata}
+        />
       )}
     </div>
   );

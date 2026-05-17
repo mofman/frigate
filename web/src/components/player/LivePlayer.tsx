@@ -48,6 +48,7 @@ type LivePlayerProps = {
   pip?: boolean;
   autoLive?: boolean;
   showStats?: boolean;
+  hideActivityIndicator?: boolean;
   onClick?: () => void;
   setFullResolution?: React.Dispatch<React.SetStateAction<VideoResolutionType>>;
   onError?: (error: LivePlayerError) => void;
@@ -73,6 +74,7 @@ export default function LivePlayer({
   pip,
   autoLive = true,
   showStats = false,
+  hideActivityIndicator = false,
   onClick,
   setFullResolution,
   onError,
@@ -365,7 +367,8 @@ export default function LivePlayer({
         (!showStillWithoutActivity || isReEnabling) &&
         !liveReady && <ActivityIndicator />}
 
-      {((showStillWithoutActivity && !liveReady) || liveReady) &&
+      {!hideActivityIndicator &&
+        ((showStillWithoutActivity && !liveReady) || liveReady) &&
         objects.length > 0 && (
           <div className="absolute left-0 top-2 z-40">
             <Tooltip>
@@ -494,23 +497,25 @@ export default function LivePlayer({
         </div>
       )}
 
-      <div className="absolute right-2 top-2 flex items-center gap-3">
-        {(alwaysShowCameraName ||
-          (offline && showStillWithoutActivity) ||
-          !cameraEnabled) && (
-          <Chip
-            className={`z-0 flex items-start justify-between space-x-1 bg-gray-500 bg-gradient-to-br from-gray-400 to-gray-500 text-xs capitalize`}
-          >
-            {cameraName}
-          </Chip>
-        )}
-        {autoLive &&
-          !offline &&
-          activeMotion &&
-          ((showStillWithoutActivity && !liveReady) || liveReady) && (
-            <MdCircle className="mr-2 size-2 animate-pulse text-danger shadow-danger drop-shadow-md" />
+      {!hideActivityIndicator && (
+        <div className="absolute right-2 top-2 flex items-center gap-3">
+          {(alwaysShowCameraName ||
+            (offline && showStillWithoutActivity) ||
+            !cameraEnabled) && (
+            <Chip
+              className={`z-0 flex items-start justify-between space-x-1 bg-gray-500 bg-gradient-to-br from-gray-400 to-gray-500 text-xs capitalize`}
+            >
+              {cameraName}
+            </Chip>
           )}
-      </div>
+          {autoLive &&
+            !offline &&
+            activeMotion &&
+            ((showStillWithoutActivity && !liveReady) || liveReady) && (
+              <MdCircle className="mr-2 size-2 animate-pulse text-danger shadow-danger drop-shadow-md" />
+            )}
+        </div>
+      )}
       {showStats && (
         <PlayerStats stats={stats} minimal={cameraRef !== undefined} />
       )}

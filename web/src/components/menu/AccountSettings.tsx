@@ -7,7 +7,7 @@ import { baseUrl } from "../../api/baseUrl";
 import { cn } from "@/lib/utils";
 import { TooltipPortal } from "@radix-ui/react-tooltip";
 import { isDesktop } from "react-device-detect";
-import { VscAccount } from "react-icons/vsc";
+import { CircleUserRound } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,9 +33,13 @@ import { useTranslation } from "react-i18next";
 
 type AccountSettingsProps = {
   className?: string;
+  showLabel?: boolean;
 };
 
-export default function AccountSettings({ className }: AccountSettingsProps) {
+export default function AccountSettings({
+  className,
+  showLabel = false,
+}: AccountSettingsProps) {
   const { t } = useTranslation(["views/settings", "common"]);
   const { data: profile } = useSWR("profile");
   const { data: config } = useSWR("config");
@@ -87,14 +91,35 @@ export default function AccountSettings({ className }: AccountSettingsProps) {
           <TooltipTrigger asChild>
             <div
               className={cn(
-                "flex flex-col items-center justify-center",
+                "flex flex-col items-center justify-center gap-1",
                 isDesktop
-                  ? "cursor-pointer rounded-lg bg-secondary text-secondary-foreground hover:bg-muted"
+                  ? showLabel
+                    ? "h-[58px] w-[52px] cursor-pointer text-center text-[#647184] transition-colors hover:text-slate-100"
+                    : "cursor-pointer rounded-lg bg-secondary text-secondary-foreground hover:bg-muted"
                   : "text-secondary-foreground",
                 className,
               )}
             >
-              <VscAccount className="size-5 md:m-[6px]" />
+              <CircleUserRound
+                className={cn(
+                  "size-[22px] stroke-2",
+                  !showLabel && "md:m-[6px]",
+                )}
+              />
+              {showLabel && (
+                <span
+                  className="whitespace-nowrap"
+                  style={{
+                    fontFamily: "Inter, sans-serif",
+                    fontSize: 12,
+                    fontWeight: 500,
+                    letterSpacing: "0.02em",
+                    lineHeight: "normal",
+                  }}
+                >
+                  Account
+                </span>
+              )}
             </div>
           </TooltipTrigger>
         </Trigger>

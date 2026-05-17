@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import {
   Tooltip,
@@ -7,26 +8,26 @@ import {
 import { isDesktop } from "react-device-detect";
 import { TooltipPortal } from "@radix-ui/react-tooltip";
 import { NavData } from "@/types/navigation";
-import { IconType } from "react-icons";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 
 const variants = {
   primary: {
-    active: "font-bold text-white bg-selected hover:bg-selected/80",
-    inactive: "text-secondary-foreground bg-secondary hover:bg-muted",
+    active: "",
+    inactive: "",
   },
   secondary: {
-    active: "font-bold text-selected",
-    inactive: "text-secondary-foreground",
+    active: "",
+    inactive: "",
   },
 };
 
 type NavItemProps = {
   className?: string;
   item: NavData;
-  Icon: IconType;
+  Icon: NavData["icon"];
   onClick?: () => void;
+  disableTooltip?: boolean;
 };
 
 export default function NavItem({
@@ -34,8 +35,11 @@ export default function NavItem({
   item,
   Icon,
   onClick,
+  disableTooltip = false,
 }: NavItemProps) {
   const { t } = useTranslation(["common"]);
+  const [isHovered, setIsHovered] = useState(false);
+
   if (item.enabled == false) {
     return;
   }
@@ -43,23 +47,65 @@ export default function NavItem({
   const content = (
     <NavLink
       to={item.url}
+      end={item.url === "/"}
       onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       className={({ isActive }) =>
         cn(
-          "flex flex-col items-center justify-center rounded-lg p-[6px]",
+          "relative flex h-[58px] w-[52px] flex-col items-center justify-center gap-1 text-center transition-colors",
           className,
           variants[item.variant ?? "primary"][isActive ? "active" : "inactive"],
         )
       }
     >
-      <Icon className="size-5" />
+      {({ isActive }) => {
+        const navColor = isActive
+          ? "#5aa7ff"
+          : isHovered
+            ? "#f1f5f9"
+            : "#647184";
+
+        return (
+          <div className="relative flex size-full flex-col items-center justify-center gap-1">
+            <Icon
+              className={cn(
+                "size-[22px] shrink-0 stroke-2",
+                isActive
+                  ? "text-[#5aa7ff]"
+                  : isHovered
+                    ? "text-[#f1f5f9]"
+                    : "text-[#647184]",
+              )}
+            />
+            <span
+              className="whitespace-nowrap"
+              style={{
+                color: navColor,
+                fontSize: disableTooltip ? 10 : 12,
+                fontFamily: "Inter, sans-serif",
+                fontWeight: 500,
+                letterSpacing: "0.02em",
+                lineHeight: "normal",
+              }}
+            >
+              {item.label ?? t(item.title)}
+            </span>
+            {!!item.badge && item.badge > 0 && (
+              <span className="absolute right-1.5 top-1 z-10 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#ef4444] px-1 text-[10px] font-semibold leading-none text-white shadow-[0_0_8px_rgba(239,68,68,0.2)]">
+                {Math.min(item.badge, 9)}
+              </span>
+            )}
+          </div>
+        );
+      }}
     </NavLink>
   );
 
-  if (isDesktop) {
+  if (isDesktop && !disableTooltip) {
     return (
       <Tooltip>
-        <TooltipTrigger>{content}</TooltipTrigger>
+        <TooltipTrigger asChild>{content}</TooltipTrigger>
         <TooltipPortal>
           <TooltipContent side="right">
             <p>{t(item.title)}</p>
