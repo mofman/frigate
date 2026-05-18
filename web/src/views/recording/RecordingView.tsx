@@ -69,17 +69,6 @@ import {
   isMobileOnly,
   isTablet,
 } from "react-device-detect";
-import { IoMdArrowRoundBack } from "react-icons/io";
-import {
-  FaCog,
-  FaCompress,
-  FaExpand,
-  FaMicrophone,
-  FaMicrophoneSlash,
-} from "react-icons/fa";
-import { GiSpeaker, GiSpeakerOff } from "react-icons/gi";
-import { LuPictureInPicture } from "react-icons/lu";
-import { TbCameraDown, TbRecordMail, TbRecordMailOff } from "react-icons/tb";
 import { useLocation, useNavigate } from "react-router-dom";
 import { TransformComponent, TransformWrapper } from "react-zoom-pan-pinch";
 import { Toaster } from "@/components/ui/sonner";
@@ -91,7 +80,6 @@ import MobileTimelineDrawer from "@/components/overlay/MobileTimelineDrawer";
 import MobileReviewSettingsDrawer from "@/components/overlay/MobileReviewSettingsDrawer";
 import Logo from "@/components/Logo";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FaVideo } from "react-icons/fa";
 import {
   LivePlayerError,
   LivePlayerMode,
@@ -138,7 +126,23 @@ import {
   grabVideoSnapshot,
   SnapshotResult,
 } from "@/utils/snapshotUtil";
-import { User, Zap } from "lucide-react";
+import {
+  ArrowLeft,
+  Camera as CameraIcon,
+  CircleDot,
+  CircleStop,
+  Maximize,
+  Mic,
+  MicOff,
+  Minimize,
+  PictureInPicture2,
+  Settings,
+  User,
+  Video,
+  Volume2,
+  VolumeX,
+  Zap,
+} from "lucide-react";
 import axios from "axios";
 
 const DATA_REFRESH_TIME = 600000; // 10 minutes
@@ -935,7 +939,7 @@ export function RecordingView({
               size="sm"
               onClick={handleBack}
             >
-              <IoMdArrowRoundBack className={toolbarIconClass} />
+              <ArrowLeft className={toolbarIconClass} />
               {isDesktop && (
                 <div className="text-slate-200">
                   {t("button.back", { ns: "common" })}
@@ -952,7 +956,7 @@ export function RecordingView({
               size="sm"
               onClick={goLive}
             >
-              <FaVideo
+              <Video
                 className={cn(
                   toolbarIconClass,
                   playbackMode == "live" && "text-slate-100",
@@ -1606,7 +1610,7 @@ function UnifiedLiveControls({
       {supportsFullscreen && (
         <CameraFeatureToggle
           variant={fullscreen ? "overlay" : "primary"}
-          Icon={fullscreen ? FaCompress : FaExpand}
+          Icon={fullscreen ? Minimize : Maximize}
           isActive={fullscreen}
           title={
             fullscreen
@@ -1619,7 +1623,7 @@ function UnifiedLiveControls({
       {!isIOS && !isFirefox && preferredLiveMode != "jsmpeg" && (
         <CameraFeatureToggle
           variant={fullscreen ? "overlay" : "primary"}
-          Icon={LuPictureInPicture}
+          Icon={PictureInPicture2}
           isActive={pip}
           title={
             pip
@@ -1640,7 +1644,7 @@ function UnifiedLiveControls({
       {supports2WayTalk && (
         <CameraFeatureToggle
           variant={fullscreen ? "overlay" : "primary"}
-          Icon={mic ? FaMicrophone : FaMicrophoneSlash}
+          Icon={mic ? Mic : MicOff}
           isActive={mic}
           title={
             mic
@@ -1659,7 +1663,7 @@ function UnifiedLiveControls({
       {supportsAudioOutput && preferredLiveMode != "jsmpeg" && (
         <CameraFeatureToggle
           variant={fullscreen ? "overlay" : "primary"}
-          Icon={audio ? GiSpeaker : GiSpeakerOff}
+          Icon={audio ? Volume2 : VolumeX}
           isActive={audio}
           title={
             audio
@@ -1675,7 +1679,7 @@ function UnifiedLiveControls({
           isRecording && "animate-pulse bg-red-500 hover:bg-red-600",
         )}
         variant={fullscreen ? "overlay" : "primary"}
-        Icon={isRecording ? TbRecordMail : TbRecordMailOff}
+        Icon={isRecording ? CircleStop : CircleDot}
         isActive={isRecording}
         title={t("manualRecording." + (isRecording ? "stop" : "start"))}
         onClick={handleEventButtonClick}
@@ -1683,7 +1687,7 @@ function UnifiedLiveControls({
       />
       <CameraFeatureToggle
         variant={fullscreen ? "overlay" : "primary"}
-        Icon={TbCameraDown}
+        Icon={CameraIcon}
         isActive={false}
         title={t("snapshot.takeSnapshot")}
         onClick={handleSnapshotClick}
@@ -1765,7 +1769,7 @@ function UnifiedLiveSettingsMenu({
               : "border border-[rgba(203,213,225,0.11)] bg-[#131820] text-[#647184] hover:border-[rgba(169,182,186,0.28)] hover:bg-[#222c38] hover:text-slate-100",
           )}
         >
-          <FaCog className="size-4 text-current" />
+          <Settings className="size-4 text-current" />
         </div>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="max-w-96">

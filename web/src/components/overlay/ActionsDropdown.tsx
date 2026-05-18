@@ -6,7 +6,7 @@ import {
 } from "../ui/dropdown-menu";
 import { Button } from "../ui/button";
 import { useTranslation } from "react-i18next";
-import { FaFilm } from "react-icons/fa6";
+import { Film } from "lucide-react";
 
 type ActionsDropdownProps = {
   onDebugReplayClick: () => void;
@@ -31,7 +31,7 @@ export default function ActionsDropdown({
           aria-label={t("menu.actions", { ns: "common" })}
           size="sm"
         >
-          <FaFilm
+          <Film
             className={`size-4 ${triggerClassName ? "text-[#647184]" : "text-secondary-foreground"}`}
           />
           <div className={triggerClassName ? "text-slate-200" : "text-primary"}>

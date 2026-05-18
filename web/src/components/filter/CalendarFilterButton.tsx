@@ -5,7 +5,7 @@ import {
 } from "@/hooks/use-date-utils";
 import { RecordingsSummary, ReviewSummary } from "@/types/review";
 import { Button } from "../ui/button";
-import { FaCalendarAlt } from "react-icons/fa";
+import { CalendarDays } from "lucide-react";
 import ReviewActivityCalendar from "../overlay/ReviewActivityCalendar";
 import { DropdownMenuSeparator } from "../ui/dropdown-menu";
 import { Drawer, DrawerContent, DrawerTrigger } from "../ui/drawer";
@@ -50,11 +50,11 @@ export default function CalendarFilterButton({
       variant={day == undefined ? "default" : "select"}
       size="sm"
     >
-      <FaCalendarAlt
+      <CalendarDays
         className={
           triggerClassName
-            ? "text-[#647184]"
-            : `${day == undefined ? "text-secondary-foreground" : "text-selected-foreground"}`
+            ? "size-4 text-[#647184]"
+            : `size-4 ${day == undefined ? "text-secondary-foreground" : "text-selected-foreground"}`
         }
       />
       <div
@@ -135,8 +135,8 @@ export function CalendarRangeFilterButton({
       variant={range == undefined ? "default" : "select"}
       size="sm"
     >
-      <FaCalendarAlt
-        className={`${range == undefined ? "text-secondary-foreground" : "text-selected-foreground"}`}
+      <CalendarDays
+        className={`size-4 ${range == undefined ? "text-secondary-foreground" : "text-selected-foreground"}`}
       />
       <div
         className={`${range == undefined ? "text-primary" : "text-selected-foreground"}`}

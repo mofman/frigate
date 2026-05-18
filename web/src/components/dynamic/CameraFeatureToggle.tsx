@@ -1,4 +1,3 @@
-import { IconType } from "react-icons";
 import {
   Tooltip,
   TooltipContent,
@@ -31,7 +30,7 @@ type CameraFeatureToggleProps = {
   className?: string;
   variant?: "primary" | "overlay";
   isActive: boolean;
-  Icon: IconType;
+  Icon: React.ComponentType<{ className?: string }>;
   title: string;
   onClick?: () => void;
   disabled?: boolean;

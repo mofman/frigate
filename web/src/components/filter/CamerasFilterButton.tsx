@@ -11,7 +11,7 @@ import {
 import { isMobile } from "react-device-detect";
 import { Drawer, DrawerContent, DrawerTrigger } from "../ui/drawer";
 import FilterSwitch from "./FilterSwitch";
-import { FaVideo } from "react-icons/fa";
+import { Video } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAllowedCameras } from "@/hooks/use-allowed-cameras";
 
@@ -94,11 +94,11 @@ export function CamerasFilterButton({
       variant={selectedCameras?.length == undefined ? "default" : "select"}
       size="sm"
     >
-      <FaVideo
+      <Video
         className={
           triggerClassName
-            ? "text-[#647184]"
-            : `${(selectedCameras?.length ?? 0) >= 1 ? "text-selected-foreground" : "text-secondary-foreground"}`
+            ? "size-4 text-[#647184]"
+            : `size-4 ${(selectedCameras?.length ?? 0) >= 1 ? "text-selected-foreground" : "text-secondary-foreground"}`
         }
       />
       <div

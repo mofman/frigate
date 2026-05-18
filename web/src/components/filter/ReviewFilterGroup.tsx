@@ -10,7 +10,7 @@ import {
   ReviewSummary,
 } from "@/types/review";
 import { getEndOfDayTimestamp } from "@/utils/dateUtil";
-import { FaCheckCircle, FaFilter, FaRunning } from "react-icons/fa";
+import { Activity, CheckCircle, Filter } from "lucide-react";
 import { isDesktop, isMobile } from "react-device-detect";
 import { Switch } from "../ui/switch";
 import { Label } from "../ui/label";
@@ -309,8 +309,8 @@ function ShowReviewFilter({
           setShowReviewedSwitch(showReviewedSwitch == false ? true : false)
         }
       >
-        <FaCheckCircle
-          className={`${showReviewedSwitch ? "text-selected-foreground" : "text-secondary-foreground"}`}
+        <CheckCircle
+          className={`size-4 ${showReviewedSwitch ? "text-selected-foreground" : "text-secondary-foreground"}`}
         />
       </Button>
     </>
@@ -371,14 +371,14 @@ function GeneralFilterButton({
       className={`flex items-center gap-2 smart-capitalize ${triggerClassName ?? ""}`}
       aria-label={t("filter")}
     >
-      <FaFilter
+      <Filter
         className={
           triggerClassName
-            ? "text-[#647184]"
+            ? "size-4 text-[#647184]"
             : `${
                 selectedLabels?.length || selectedZones?.length
-                  ? "text-selected-foreground"
-                  : "text-secondary-foreground"
+                  ? "size-4 text-selected-foreground"
+                  : "size-4 text-secondary-foreground"
               }`
         }
       />
@@ -675,8 +675,8 @@ function ShowMotionOnlyButton({
           variant={motionOnlyButton ? "select" : "default"}
           onClick={() => setMotionOnlyButton(!motionOnlyButton)}
         >
-          <FaRunning
-            className={`${motionOnlyButton ? "text-selected-foreground" : "text-secondary-foreground"}`}
+          <Activity
+            className={`size-4 ${motionOnlyButton ? "text-selected-foreground" : "text-secondary-foreground"}`}
           />
         </Button>
       </div>
