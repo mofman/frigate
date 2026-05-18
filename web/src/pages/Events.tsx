@@ -642,6 +642,7 @@ export default function Events() {
     return {
       camera: recording.camera,
       start_time: recording.startTime,
+      mode: recording.mode,
       allCameras: allCameras,
     };
 
@@ -660,6 +661,7 @@ export default function Events() {
           key={selectedTimeRange.before}
           startCamera={selectedReviewData.camera}
           startTime={selectedReviewData.start_time}
+          initialMode={selectedReviewData.mode ?? "recording"}
           allCameras={selectedReviewData.allCameras}
           reviewItems={reviews}
           reviewSummary={reviewSummary}

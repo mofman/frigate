@@ -39,6 +39,7 @@ export type RecordingStartingPoint = {
   camera: string;
   startTime: number;
   severity: ReviewSeverity;
+  mode?: "live" | "recording";
   timelineType?: TimelineType;
   navigationSource?: "shared-link";
 };

@@ -3,8 +3,8 @@ import useKeyboardListener from "@/hooks/use-keyboard-listener";
 import { useHashState, useSearchEffect } from "@/hooks/use-overlay-state";
 import { useUserPersistedOverlayState } from "@/hooks/use-overlay-state";
 import { FrigateConfig } from "@/types/frigateConfig";
+import UnifiedCameraView from "@/views/camera/UnifiedCameraView";
 import LiveBirdseyeView from "@/views/live/LiveBirdseyeView";
-import LiveCameraView from "@/views/live/LiveCameraView";
 import LiveDashboardView from "@/views/live/LiveDashboardView";
 import { useTranslation } from "react-i18next";
 
@@ -161,13 +161,11 @@ function Live() {
           onSelectCamera={setSelectedCameraName}
         />
       ) : selectedCamera ? (
-        <LiveCameraView
+        <UnifiedCameraView
           key={selectedCameraName}
           config={config}
-          camera={selectedCamera}
-          supportsFullscreen={supportsFullScreen}
-          fullscreen={fullscreen}
-          toggleFullscreen={toggleFullscreen}
+          camera={selectedCamera.name}
+          onSelectCamera={setSelectedCameraName}
         />
       ) : (
         <LiveDashboardView

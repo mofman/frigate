@@ -32,6 +32,7 @@ import { isFirefox } from "react-device-detect";
  */
 type DynamicVideoPlayerProps = {
   className?: string;
+  videoClassName?: string;
   camera: string;
   timeRange: TimeRange;
   cameraPreviews: Preview[];
@@ -51,6 +52,7 @@ type DynamicVideoPlayerProps = {
 };
 export default function DynamicVideoPlayer({
   className,
+  videoClassName,
   camera,
   timeRange,
   cameraPreviews,
@@ -300,6 +302,7 @@ export default function DynamicVideoPlayer({
         <HlsVideoPlayer
           videoRef={playerRef}
           containerRef={containerRef}
+          videoClassName={videoClassName}
           visible={!(isScrubbing || isLoading)}
           currentSource={source}
           hotKeys={hotKeys}

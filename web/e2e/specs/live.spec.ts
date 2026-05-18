@@ -66,6 +66,22 @@ test.describe("Live Single Camera — desktop controls @critical", () => {
     await expect(live.historyButton).toBeVisible();
   });
 
+  test("timeline mode changes preserve the selected camera hash", async ({
+    frigateApp,
+  }) => {
+    test.skip(frigateApp.isMobile, "Timeline mode buttons are desktop-only");
+
+    await frigateApp.goto("/#front_door");
+    const live = new LivePage(frigateApp.page, true);
+    await expect(live.backButton).toBeVisible({ timeout: 5_000 });
+
+    for (const mode of ["Events", "Detail", "Timeline"]) {
+      await frigateApp.page.getByRole("radio", { name: mode }).click();
+      await expect(frigateApp.page).toHaveURL(/#front_door/);
+      await expect(live.backButton).toBeVisible();
+    }
+  });
+
   test("feature toggles render (at least 3)", async ({ frigateApp }) => {
     await frigateApp.goto("/#front_door");
     const live = new LivePage(frigateApp.page, true);

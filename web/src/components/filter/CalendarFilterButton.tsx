@@ -24,12 +24,14 @@ type CalendarFilterButtonProps = {
   reviewSummary?: ReviewSummary;
   recordingsSummary?: RecordingsSummary;
   day?: Date;
+  triggerClassName?: string;
   updateSelectedDay: (day?: Date) => void;
 };
 export default function CalendarFilterButton({
   reviewSummary,
   recordingsSummary,
   day,
+  triggerClassName,
   updateSelectedDay,
 }: CalendarFilterButtonProps) {
   const { t } = useTranslation(["components/filter", "views/events"]);
@@ -43,16 +45,26 @@ export default function CalendarFilterButton({
 
   const trigger = (
     <Button
-      className="flex items-center gap-2"
+      className={`flex items-center gap-2 ${triggerClassName ?? ""}`}
       aria-label={t("explore.date.selectDateBy.label")}
       variant={day == undefined ? "default" : "select"}
       size="sm"
     >
       <FaCalendarAlt
-        className={`${day == undefined ? "text-secondary-foreground" : "text-selected-foreground"}`}
+        className={
+          triggerClassName
+            ? "text-[#647184]"
+            : `${day == undefined ? "text-secondary-foreground" : "text-selected-foreground"}`
+        }
       />
       <div
-        className={`hidden md:block ${day == undefined ? "text-primary" : "text-selected-foreground"}`}
+        className={`hidden md:block ${
+          triggerClassName
+            ? "text-slate-200"
+            : day == undefined
+              ? "text-primary"
+              : "text-selected-foreground"
+        }`}
       >
         {day == undefined
           ? t("calendarFilter.last24Hours", { ns: "views/events" })

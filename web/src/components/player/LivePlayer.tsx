@@ -340,7 +340,8 @@ export default function LivePlayer({
       data-camera={cameraConfig.name}
       className={cn(
         "relative flex w-full cursor-pointer justify-center outline",
-        activeTracking &&
+        !hideActivityIndicator &&
+          activeTracking &&
           ((showStillWithoutActivity && !liveReady) || liveReady)
           ? "outline-3 rounded-lg shadow-severity_alert outline-severity_alert md:rounded-2xl"
           : "outline-0 outline-background",

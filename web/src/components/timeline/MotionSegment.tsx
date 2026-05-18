@@ -194,7 +194,7 @@ export function MotionSegment({
             segmentClasses,
             severity[0] && "bg-gradient-to-r",
             severity[0] && severityColorsBg[severity[0]],
-            hasRecording == false && "bg-background",
+            hasRecording == false && "bg-[#050607]",
           )}
           onClick={segmentClick}
           onTouchEnd={(event) => handleTouchStart(event, segmentClick)}
@@ -250,7 +250,7 @@ export function MotionSegment({
                       "rounded-full",
                       secondHalfSegmentWidth
                         ? "bg-motion_review"
-                        : "bg-muted-foreground",
+                        : "bg-[#334155]",
                     )}
                     style={{
                       width: secondHalfSegmentWidth || 1,
@@ -269,7 +269,7 @@ export function MotionSegment({
                       "rounded-full",
                       firstHalfSegmentWidth
                         ? "bg-motion_review"
-                        : "bg-muted-foreground",
+                        : "bg-[#334155]",
                     )}
                     style={{
                       width: firstHalfSegmentWidth || 1,

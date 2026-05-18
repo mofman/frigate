@@ -33,7 +33,7 @@ export function useOverlayState<S>(
 
       const newLocationState = { ...loc.state };
       newLocationState[key] = value;
-      navigate(loc.pathname + (preserveSearch ? loc.search : ""), {
+      navigate(loc.pathname + (preserveSearch ? loc.search : "") + loc.hash, {
         state: newLocationState,
         replace,
       });
@@ -90,7 +90,7 @@ export function usePersistedOverlayState<S extends string>(
       setPersistedValue(value);
       const newLocationState = { ...loc.state };
       newLocationState[key] = value;
-      navigate(loc.pathname, { state: newLocationState, replace });
+      navigate(loc.pathname + loc.hash, { state: newLocationState, replace });
     },
     // locationRef is stable so we don't need it in deps
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -148,7 +148,7 @@ export function useUserPersistedOverlayState<S extends string>(
       setPersistedValue(value);
       const newLocationState = { ...loc.state };
       newLocationState[key] = value;
-      navigate(loc.pathname, { state: newLocationState, replace });
+      navigate(loc.pathname + loc.hash, { state: newLocationState, replace });
     },
     // locationRef is stable so we don't need it in deps
     // eslint-disable-next-line react-hooks/exhaustive-deps

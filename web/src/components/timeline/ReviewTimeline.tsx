@@ -45,6 +45,7 @@ export type ReviewTimelineProps = {
   onZoomChange?: (newZoomLevel: number) => void;
   possibleZoomLevels?: ZoomLevel[];
   currentZoomLevel?: number;
+  isLive?: boolean;
   children: ReactNode;
 };
 
@@ -74,6 +75,7 @@ export function ReviewTimeline({
   onZoomChange,
   possibleZoomLevels,
   currentZoomLevel,
+  isLive = false,
   children,
 }: ReviewTimelineProps) {
   const { t } = useTranslation("views/events");
@@ -374,7 +376,7 @@ export function ReviewTimeline({
       <div
         ref={timelineRef}
         className={cn(
-          "no-scrollbar relative h-full select-none overflow-y-auto bg-secondary transition-all duration-500 ease-in-out",
+          "no-scrollbar relative h-full select-none overflow-y-auto border-l border-[rgba(203,213,225,0.11)] bg-[#0a0e11] transition-all duration-500 ease-in-out",
           isZooming && zoomDirection === "in" && "animate-timeline-zoom-in",
           isZooming && zoomDirection === "out" && "animate-timeline-zoom-out",
           isDragging && (showHandlebar || showExportHandles)
@@ -383,8 +385,8 @@ export function ReviewTimeline({
         )}
       >
         <div ref={segmentsRef} className="relative flex flex-col">
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-[30px] w-full bg-gradient-to-b from-secondary to-transparent"></div>
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-[30px] w-full bg-gradient-to-t from-secondary to-transparent"></div>
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-[30px] w-full bg-gradient-to-b from-[#0a0e11] to-transparent"></div>
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-[30px] w-full bg-gradient-to-t from-[#0a0e11] to-transparent"></div>
           {children}
         </div>
         {children && (
@@ -406,21 +408,26 @@ export function ReviewTimeline({
                     }`}
                   >
                     <div
-                      className={`mx-auto rounded-full bg-destructive ${
+                      className={`${isLive ? "min-w-[86px] border border-emerald-300/35 bg-emerald-500 text-white shadow-[0_0_24px_rgba(16,185,129,0.24)]" : "bg-[#9d1b1e] text-white shadow-[0_8px_24px_rgba(0,0,0,0.35)]"} relative z-10 mx-auto rounded-[4px] ${
                         dense
                           ? "w-12 md:w-20"
                           : segmentDuration < 60
                             ? "w-[80px]"
                             : "w-20"
-                      } h-5 ${isDraggingHandlebar && isMobile ? "fixed left-1/2 top-[18px] z-20 h-[30px] w-auto -translate-x-1/2 transform bg-destructive/80 px-3" : "static"} flex items-center justify-center`}
+                      } h-6 ${isDraggingHandlebar && isMobile ? `fixed left-1/2 top-[18px] z-20 h-[30px] w-auto -translate-x-1/2 transform px-3 ${isLive ? "bg-emerald-500/90" : "bg-[#9d1b1e]/90"}` : "static"} flex items-center justify-center gap-1.5 px-2`}
                     >
+                      {isLive && (
+                        <span className="relative z-10 text-[11px] font-semibold uppercase leading-none tracking-normal">
+                          Live
+                        </span>
+                      )}
                       <div
                         ref={handlebarTimeRef}
-                        className={`pointer-events-none text-white ${textSizeClasses("handlebar")} z-10`}
+                        className={`pointer-events-none ${isLive ? "hidden" : "text-white"} ${textSizeClasses("handlebar")} z-10`}
                       ></div>
                     </div>
                     <div
-                      className={`absolute h-[4px] w-full bg-destructive ${isDraggingHandlebar && isMobile ? "top-1" : "top-1/2 -translate-y-1/2 transform"}`}
+                      className={`absolute z-0 h-[3px] w-full ${isLive ? "bg-emerald-500/80" : "bg-[#9d1b1e]"} ${isDraggingHandlebar && isMobile ? "top-1" : "top-1/2 -translate-y-1/2 transform"}`}
                     ></div>
                   </div>
                 </div>
@@ -471,7 +478,7 @@ export function ReviewTimeline({
                 </div>
                 <div
                   ref={exportSectionRef}
-                  className="absolute w-full bg-selected/50"
+                  className="absolute w-full bg-selected/40"
                 ></div>
                 <div
                   className={`export-start absolute left-0 top-0 ${isDraggingExportStart && isIOS ? "" : "z-20"} w-full`}
@@ -532,10 +539,10 @@ export function ReviewTimeline({
                 }}
                 variant="outline"
                 disabled={currentZoomLevelIndex === 0}
-                className="bg-background_alt p-3 hover:bg-accent hover:text-accent-foreground active:scale-95 [@media(hover:none)]:hover:bg-background_alt"
+                className="rounded-[4px] border border-[rgba(203,213,225,0.11)] bg-[#131820] p-3 text-[#647184] hover:border-[rgba(169,182,186,0.28)] hover:bg-[#222c38] hover:text-slate-100 active:scale-95 [@media(hover:none)]:hover:bg-[#131820]"
                 type="button"
               >
-                <LuZoomOut className={cn("size-5 text-primary-variant")} />
+                <LuZoomOut className={cn("size-5 text-current")} />
               </Button>
             </TooltipTrigger>
             <TooltipPortal>
@@ -555,10 +562,10 @@ export function ReviewTimeline({
                 }}
                 variant="outline"
                 disabled={currentZoomLevelIndex === zoomLevels.length - 1}
-                className="bg-background_alt p-3 hover:bg-accent hover:text-accent-foreground active:scale-95 [@media(hover:none)]:hover:bg-background_alt"
+                className="rounded-[4px] border border-[rgba(203,213,225,0.11)] bg-[#131820] p-3 text-[#647184] hover:border-[rgba(169,182,186,0.28)] hover:bg-[#222c38] hover:text-slate-100 active:scale-95 [@media(hover:none)]:hover:bg-[#131820]"
                 type="button"
               >
-                <LuZoomIn className={cn("size-5 text-primary-variant")} />
+                <LuZoomIn className={cn("size-5 text-current")} />
               </Button>
             </TooltipTrigger>
             <TooltipPortal>

@@ -8,6 +8,7 @@ import PreviewPlayer, {
 } from "@/components/player/PreviewPlayer";
 import { DynamicVideoController } from "@/components/player/dynamic/DynamicVideoController";
 import DynamicVideoPlayer from "@/components/player/dynamic/DynamicVideoPlayer";
+import LivePlayer from "@/components/player/LivePlayer";
 import MotionReviewTimeline from "@/components/timeline/MotionReviewTimeline";
 import DetailStream from "@/components/timeline/DetailStream";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,7 @@ import {
 } from "react-device-detect";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import { useLocation, useNavigate } from "react-router-dom";
+import { TransformComponent, TransformWrapper } from "react-zoom-pan-pinch";
 import { Toaster } from "@/components/ui/sonner";
 import useSWR from "swr";
 import { TimeRange, TimelineType } from "@/types/timeline";
@@ -52,7 +54,7 @@ import MobileReviewSettingsDrawer from "@/components/overlay/MobileReviewSetting
 import Logo from "@/components/Logo";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FaVideo } from "react-icons/fa";
-import { VideoResolutionType } from "@/types/live";
+import { LivePlayerMode, VideoResolutionType } from "@/types/live";
 import {
   ASPECT_VERTICAL_LAYOUT,
   ASPECT_WIDE_LAYOUT,
@@ -65,6 +67,7 @@ import { useTimezone } from "@/hooks/use-date-utils";
 import { useTimelineZoom } from "@/hooks/use-timeline-zoom";
 import { useTranslation } from "react-i18next";
 import { useTimelineUtils } from "@/hooks/use-timeline-utils";
+import { useCameraActivity } from "@/hooks/use-camera-activity";
 import {
   Tooltip,
   TooltipContent,
@@ -80,12 +83,16 @@ import {
 import ShareTimestampDialog from "@/components/overlay/ShareTimestampDialog";
 import { shareOrCopy } from "@/utils/browserUtil";
 import { createRecordingReviewUrl } from "@/utils/recordingReviewUrl";
+import { getIconForLabel } from "@/utils/iconUtil";
+import { User, Zap } from "lucide-react";
 
 const DATA_REFRESH_TIME = 600000; // 10 minutes
+const LIVE_EDGE_THRESHOLD = 5; // seconds
 
 type RecordingViewProps = {
   startCamera: string;
   startTime: number;
+  initialMode?: "live" | "recording";
   reviewItems?: ReviewSegment[];
   reviewSummary?: ReviewSummary;
   timeRange: TimeRange;
@@ -94,10 +101,12 @@ type RecordingViewProps = {
   filter?: ReviewFilter;
   updateFilter: (newFilter: ReviewFilter) => void;
   refreshData?: () => void;
+  onSelectCamera?: (camera: string) => void;
 };
 export function RecordingView({
   startCamera,
   startTime,
+  initialMode = "recording",
   reviewItems,
   reviewSummary,
   timeRange,
@@ -106,6 +115,7 @@ export function RecordingView({
   filter,
   updateFilter,
   refreshData,
+  onSelectCamera: onSelectCameraProp,
 }: RecordingViewProps) {
   const { t } = useTranslation(["views/events", "components/dialog"]);
   const { data: config } = useSWR<FrigateConfig>("config");
@@ -123,6 +133,9 @@ export function RecordingView({
     [allCameras, allowedCameras],
   );
   const [mainCamera, setMainCamera] = useState(startCamera);
+  const [playbackMode, setPlaybackMode] = useState<"live" | "recording">(
+    initialMode,
+  );
 
   const { data: recordingsSummary } = useSWR<RecordingsSummary>([
     "recordings/summary",
@@ -141,9 +154,11 @@ export function RecordingView({
   const previewRefs = useRef<{ [camera: string]: PreviewController }>({});
 
   const [playbackStart, setPlaybackStart] = useState(
-    startTime >= timeRange.after && startTime <= timeRange.before
-      ? startTime
-      : timeRange.before - 60,
+    initialMode == "live"
+      ? timeRange.before - 30
+      : startTime >= timeRange.after && startTime <= timeRange.before
+        ? startTime
+        : timeRange.before - 60,
   );
 
   const mainCameraReviewItems = useMemo(
@@ -267,7 +282,26 @@ export function RecordingView({
   // scrubbing and timeline state
 
   const [scrubbing, setScrubbing] = useState(false);
-  const [currentTime, setCurrentTime] = useState<number>(startTime);
+  const [currentTime, setCurrentTime] = useState<number>(
+    initialMode == "live" ? timeRange.before : startTime,
+  );
+  const setCurrentTimeAndMode = useCallback(
+    (time: number | ((previous: number) => number)) => {
+      setCurrentTime((previous) => {
+        const nextTime = typeof time == "function" ? time(previous) : time;
+        const nextMode =
+          timeRange.before - nextTime <= LIVE_EDGE_THRESHOLD
+            ? "live"
+            : "recording";
+
+        setPlaybackMode(nextMode);
+        setPlaybackStart(nextMode == "live" ? timeRange.before - 30 : nextTime);
+
+        return nextTime;
+      });
+    },
+    [timeRange.before],
+  );
   const [playerTime, setPlayerTime] = useState(startTime);
 
   const updateSelectedSegment = useCallback(
@@ -316,7 +350,19 @@ export function RecordingView({
       if (!currentTimeRange) {
         return;
       }
+      const nextPlaybackMode =
+        timeRange.before - time <= LIVE_EDGE_THRESHOLD ? "live" : "recording";
+
+      setPlaybackMode(nextPlaybackMode);
       setCurrentTime(time);
+      setPlaybackStart(
+        nextPlaybackMode == "live" ? timeRange.before - 30 : time,
+      );
+
+      if (nextPlaybackMode == "live") {
+        mainControllerRef.current = null;
+        return;
+      }
 
       if (currentTimeRange.after <= time && currentTimeRange.before >= time) {
         mainControllerRef.current?.seekToTimestamp(time, play);
@@ -324,8 +370,16 @@ export function RecordingView({
         updateSelectedSegment(time, true);
       }
     },
-    [currentTimeRange, updateSelectedSegment],
+    [currentTimeRange, timeRange.before, updateSelectedSegment],
   );
+
+  const goLive = useCallback(() => {
+    setPlaybackMode("live");
+    mainControllerRef.current = null;
+    setCurrentTime(timeRange.before);
+    setPlaybackStart(timeRange.before - 30);
+    updateSelectedSegment(timeRange.before, true);
+  }, [timeRange.before, updateSelectedSegment]);
 
   const onShareReviewLink = useCallback(
     (timestamp: number) => {
@@ -356,6 +410,10 @@ export function RecordingView({
   }, [navigate, recording?.navigationSource]);
 
   useEffect(() => {
+    if (playbackMode == "live") {
+      return;
+    }
+
     if (!scrubbing) {
       if (Math.abs(currentTime - playerTime) > 10) {
         if (
@@ -394,15 +452,34 @@ export function RecordingView({
     (newCam: string) => {
       if (allowedCameras.includes(newCam)) {
         setMainCamera(newCam);
+        onSelectCameraProp?.(newCam);
         setFullResolution({
           width: 0,
           height: 0,
         });
-        setPlaybackStart(currentTime);
+        setPlaybackStart(
+          playbackMode == "live" ? timeRange.before - 30 : currentTime,
+        );
       }
     },
-    [currentTime, allowedCameras],
+    [
+      currentTime,
+      allowedCameras,
+      onSelectCameraProp,
+      playbackMode,
+      timeRange.before,
+    ],
   );
+
+  useEffect(() => {
+    if (playbackMode != "live") {
+      return;
+    }
+
+    setCurrentTime(timeRange.before);
+    setPlaybackStart(timeRange.before - 30);
+    updateSelectedSegment(timeRange.before, true);
+  }, [playbackMode, timeRange.before, updateSelectedSegment]);
 
   // fullscreen
 
@@ -445,6 +522,78 @@ export function RecordingView({
       return "normal";
     }
   }, [getCameraAspect, mainCamera]);
+
+  const getLiveStreamName = useCallback(
+    (camera: string) =>
+      config?.cameras[camera]?.live.streams
+        ? Object.values(config.cameras[camera].live.streams)[0]
+        : "",
+    [config],
+  );
+
+  const getPreferredLiveMode = useCallback(
+    (camera: string): LivePlayerMode => {
+      const streamName = getLiveStreamName(camera);
+      const isRestreamed =
+        streamName &&
+        Object.keys(config?.go2rtc.streams || {}).includes(streamName);
+
+      if (!("MediaSource" in window || "ManagedMediaSource" in window)) {
+        return "webrtc";
+      }
+
+      return isRestreamed ? "mse" : "jsmpeg";
+    },
+    [config?.go2rtc.streams, getLiveStreamName],
+  );
+
+  const preferredLiveMode = useMemo<LivePlayerMode>(
+    () => getPreferredLiveMode(mainCamera),
+    [getPreferredLiveMode, mainCamera],
+  );
+
+  const liveStreamName = useMemo(
+    () => getLiveStreamName(mainCamera),
+    [getLiveStreamName, mainCamera],
+  );
+
+  const preferredPreviewLiveModes = useMemo(() => {
+    const modes: Record<string, LivePlayerMode> = {};
+
+    effectiveCameras.forEach((camera) => {
+      modes[camera] = getPreferredLiveMode(camera);
+    });
+
+    return modes;
+  }, [effectiveCameras, getPreferredLiveMode]);
+
+  const previewLiveStreamNames = useMemo(() => {
+    const streamNames: Record<string, string> = {};
+
+    effectiveCameras.forEach((camera) => {
+      streamNames[camera] = getLiveStreamName(camera);
+    });
+
+    return streamNames;
+  }, [effectiveCameras, getLiveStreamName]);
+
+  const mainCameraConfig = config?.cameras[mainCamera];
+  const { activeMotion, activeTracking, objects } =
+    useCameraActivity(mainCameraConfig);
+  const primaryObject = objects.find((object) => !object.stationary);
+  const personCount = objects.filter(
+    (object) => !object.stationary && object.label === "person",
+  ).length;
+  const hasLiveActivity = activeMotion || activeTracking || !!primaryObject;
+  const liveActivityType =
+    primaryObject?.label ?? (activeMotion ? "motion" : null);
+  const liveActivityLabel =
+    personCount > 0
+      ? `${personCount} ${personCount === 1 ? "person" : "people"}`
+      : liveActivityType === "motion"
+        ? "Motion"
+        : liveActivityType;
+  const liveActivityIsMotion = liveActivityType === "motion";
 
   const grow = useMemo(() => {
     if (mainCameraAspect == "wide") {
@@ -588,43 +737,56 @@ export function RecordingView({
     [mainControllerRef],
   );
 
+  const toolbarButtonClass =
+    "h-[34px] rounded-[4px] border border-[rgba(203,213,225,0.11)] bg-[#131820] px-3 text-sm font-medium text-slate-200 transition-colors hover:border-[rgba(169,182,186,0.28)] hover:bg-[#222c38] hover:text-slate-100";
+  const toolbarIconClass = "size-4 text-[#647184]";
+  const toolbarActiveClass =
+    "border-[rgba(92,120,255,0.55)] bg-[#1a2540] text-slate-100 hover:border-[rgba(117,143,255,0.72)] hover:bg-[#202e52]";
+
   return (
     <DetailStreamProvider
       isDetailMode={timelineType === "detail"}
       currentTime={currentTime}
       camera={mainCamera}
     >
-      <div ref={contentRef} className="flex size-full flex-col pt-2">
+      <div ref={contentRef} className="flex size-full flex-col bg-[#050607]">
         <Toaster closeButton={true} />
-        <div className="relative mb-2 flex h-11 w-full items-center justify-between px-2">
+        <div className="relative flex w-full shrink-0 items-center justify-between border-b border-[rgba(203,213,225,0.11)] bg-[rgba(13,17,20,0.82)] px-4 py-[14px] backdrop-blur-xl md:px-6">
           {isMobile && (
             <Logo className="absolute inset-x-1/2 h-8 -translate-x-1/2" />
           )}
           <div className={cn("flex items-center gap-2")}>
             <Button
-              className="flex items-center gap-2.5 rounded-lg"
+              className={`flex items-center gap-2 ${toolbarButtonClass}`}
               aria-label={t("label.back", { ns: "common" })}
               size="sm"
               onClick={handleBack}
             >
-              <IoMdArrowRoundBack className="size-5 text-secondary-foreground" />
+              <IoMdArrowRoundBack className={toolbarIconClass} />
               {isDesktop && (
-                <div className="text-primary">
+                <div className="text-slate-200">
                   {t("button.back", { ns: "common" })}
                 </div>
               )}
             </Button>
             <Button
-              className="flex items-center gap-2.5 rounded-lg"
-              aria-label="Go to the main camera live view"
+              className={cn(
+                "flex items-center gap-2",
+                toolbarButtonClass,
+                playbackMode == "live" && toolbarActiveClass,
+              )}
+              aria-label={t("menu.live.title", { ns: "common" })}
               size="sm"
-              onClick={() => {
-                navigate(`/#${mainCamera}`);
-              }}
+              onClick={goLive}
             >
-              <FaVideo className="size-5 text-secondary-foreground" />
+              <FaVideo
+                className={cn(
+                  toolbarIconClass,
+                  playbackMode == "live" && "text-slate-100",
+                )}
+              />
               {isDesktop && (
-                <div className="text-primary">
+                <div className="text-slate-200">
                   {t("menu.live.title", { ns: "common" })}
                 </div>
               )}
@@ -683,6 +845,7 @@ export function RecordingView({
                 showReviewed
                 setShowReviewed={() => {}}
                 mainCamera={mainCamera}
+                triggerClassName={toolbarButtonClass}
                 onUpdateFilter={(newFilter: ReviewFilter) => {
                   const updatedCameras =
                     newFilter.cameras === undefined
@@ -715,6 +878,7 @@ export function RecordingView({
             )}
             {isDesktop && (
               <ActionsDropdown
+                triggerClassName={toolbarButtonClass}
                 onShareTimestampClick={() => {
                   const initialTimestamp = Math.floor(currentTime);
 
@@ -743,7 +907,7 @@ export function RecordingView({
             )}
             {isDesktop ? (
               <ToggleGroup
-                className="*:rounded-md *:px-3 *:py-4"
+                className="*:h-[34px] *:rounded-[4px] *:border *:border-[rgba(203,213,225,0.11)] *:bg-[#131820] *:px-3 *:py-0 *:text-sm *:font-medium *:text-slate-500 *:transition-colors hover:*:border-[rgba(169,182,186,0.28)] hover:*:bg-[#222c38] hover:*:text-slate-100"
                 type="single"
                 size="sm"
                 value={timelineType}
@@ -752,21 +916,21 @@ export function RecordingView({
                 } // don't allow the severity to be unselected
               >
                 <ToggleGroupItem
-                  className={`${timelineType == "timeline" ? "" : "text-muted-foreground"}`}
+                  className={`${timelineType == "timeline" ? "border-[rgba(92,120,255,0.55)] bg-[#1a2540] text-slate-100" : ""}`}
                   value="timeline"
                   aria-label={t("timeline.aria")}
                 >
                   <div className="">{t("timeline.label")}</div>
                 </ToggleGroupItem>
                 <ToggleGroupItem
-                  className={`${timelineType == "events" ? "" : "text-muted-foreground"}`}
+                  className={`${timelineType == "events" ? "border-[rgba(92,120,255,0.55)] bg-[#1a2540] text-slate-100" : ""}`}
                   value="events"
                   aria-label={t("events.aria")}
                 >
                   <div className="">{t("events.label")}</div>
                 </ToggleGroupItem>
                 <ToggleGroupItem
-                  className={`${timelineType == "detail" ? "" : "text-muted-foreground"}`}
+                  className={`${timelineType == "detail" ? "border-[rgba(92,120,255,0.55)] bg-[#1a2540] text-slate-100" : ""}`}
                   value="detail"
                   aria-label="Detail Stream"
                 >
@@ -836,7 +1000,10 @@ export function RecordingView({
               <div
                 key={mainCamera}
                 className={cn(
-                  "relative flex max-h-full min-h-0 min-w-0 max-w-full items-center justify-center",
+                  "relative flex max-h-full min-h-0 min-w-0 max-w-full items-center justify-center overflow-hidden rounded-lg border border-[rgba(203,213,225,0.11)] bg-[#131820] shadow-[0_1px_0_rgba(255,255,255,0.03)] transition",
+                  playbackMode == "live" &&
+                    hasLiveActivity &&
+                    "border-amber-500/60 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.14)]",
                   isDesktop
                     ? // Desktop: dynamically switch between w-full and h-full based on
                       // container vs camera aspect ratio to ensure proper fitting
@@ -865,39 +1032,109 @@ export function RecordingView({
                   </GenAISummaryDialog>
                 )}
 
-                <DynamicVideoPlayer
-                  className={grow}
-                  camera={mainCamera}
-                  timeRange={currentTimeRange}
-                  cameraPreviews={allPreviews ?? []}
-                  startTimestamp={playbackStart}
-                  hotKeys={
-                    exportMode != "select" && debugReplayMode != "select"
-                  }
-                  fullscreen={fullscreen}
-                  onTimestampUpdate={(timestamp) => {
-                    setPlayerTime(timestamp);
-                    setCurrentTime(timestamp);
-                    Object.values(previewRefs.current ?? {}).forEach((prev) =>
-                      prev.scrubToTimestamp(Math.floor(timestamp)),
-                    );
-                  }}
-                  onClipEnded={onClipEnded}
-                  onSeekToTime={manuallySetCurrentTime}
-                  onControllerReady={(controller) => {
-                    mainControllerRef.current = controller;
-                  }}
-                  isScrubbing={
-                    scrubbing ||
-                    exportMode == "timeline" ||
-                    exportMode == "timeline_multi" ||
-                    debugReplayMode == "timeline"
-                  }
-                  supportsFullscreen={supportsFullScreen}
-                  setFullResolution={setFullResolution}
-                  toggleFullscreen={toggleFullscreen}
-                  containerRef={mainLayoutRef}
-                />
+                {playbackMode == "live" && config?.cameras[mainCamera] ? (
+                  <>
+                    <div className="pointer-events-none absolute left-3 top-3 z-30 flex items-center gap-2 rounded-[4px] border border-emerald-400/35 bg-emerald-500 px-2.5 py-1 text-[11px] font-semibold uppercase leading-none text-[#04140c] shadow-[0_0_24px_rgba(16,185,129,0.28)]">
+                      <span className="size-1.5 animate-pulse rounded-full bg-[#04140c]" />
+                      <span>Live Feed</span>
+                    </div>
+                    <TransformWrapper
+                      minScale={1.0}
+                      wheel={{ smoothStep: 0.005 }}
+                    >
+                      <TransformComponent
+                        wrapperStyle={{
+                          width: "100%",
+                          height: "100%",
+                        }}
+                        contentStyle={{
+                          position: "relative",
+                          width: "100%",
+                          height: "100%",
+                        }}
+                      >
+                        <LivePlayer
+                          key={`${mainCamera}-live`}
+                          className="size-full rounded-none bg-black outline-offset-0 [&_*]:rounded-none"
+                          windowVisible
+                          showStillWithoutActivity={false}
+                          alwaysShowCameraName={false}
+                          cameraConfig={config.cameras[mainCamera]}
+                          playAudio={false}
+                          playInBackground={false}
+                          preferredLiveMode={preferredLiveMode}
+                          useWebGL={true}
+                          streamName={liveStreamName}
+                          containerRef={mainLayoutRef}
+                          setFullResolution={setFullResolution}
+                          hideActivityIndicator
+                        />
+                      </TransformComponent>
+                    </TransformWrapper>
+                    {hasLiveActivity && liveActivityLabel && (
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex items-end justify-between bg-gradient-to-t from-[rgba(5,8,10,0.82)] to-transparent px-3 py-2">
+                        <div className="flex min-w-0 gap-1.5">
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1 rounded border px-2 py-1 text-[11px] font-medium backdrop-blur-xl",
+                              liveActivityIsMotion
+                                ? "border-amber-300/25 bg-amber-400/10 text-[#ffb454]"
+                                : "border-[#5aa7ff]/25 bg-[#5aa7ff]/10 text-[#b9d8ff]",
+                            )}
+                          >
+                            {liveActivityIsMotion ? (
+                              <Zap className="size-3" />
+                            ) : primaryObject ? (
+                              getIconForLabel(
+                                primaryObject.label,
+                                "object",
+                                "size-3",
+                              )
+                            ) : (
+                              <User className="size-3" />
+                            )}
+                            {liveActivityLabel}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <DynamicVideoPlayer
+                    className={`${grow} rounded-none bg-black outline-offset-0 md:rounded-none`}
+                    videoClassName="rounded-none md:rounded-none"
+                    camera={mainCamera}
+                    timeRange={currentTimeRange}
+                    cameraPreviews={allPreviews ?? []}
+                    startTimestamp={playbackStart}
+                    hotKeys={
+                      exportMode != "select" && debugReplayMode != "select"
+                    }
+                    fullscreen={fullscreen}
+                    onTimestampUpdate={(timestamp) => {
+                      setPlayerTime(timestamp);
+                      setCurrentTime(timestamp);
+                      Object.values(previewRefs.current ?? {}).forEach((prev) =>
+                        prev.scrubToTimestamp(Math.floor(timestamp)),
+                      );
+                    }}
+                    onClipEnded={onClipEnded}
+                    onSeekToTime={manuallySetCurrentTime}
+                    onControllerReady={(controller) => {
+                      mainControllerRef.current = controller;
+                    }}
+                    isScrubbing={
+                      scrubbing ||
+                      exportMode == "timeline" ||
+                      exportMode == "timeline_multi" ||
+                      debugReplayMode == "timeline"
+                    }
+                    supportsFullscreen={supportsFullScreen}
+                    setFullResolution={setFullResolution}
+                    toggleFullscreen={toggleFullscreen}
+                    containerRef={mainLayoutRef}
+                  />
+                )}
               </div>
               {isDesktop && effectiveCameras.length > 1 && (
                 <div
@@ -921,28 +1158,50 @@ export function RecordingView({
                       <Tooltip key={cam}>
                         <TooltipTrigger asChild>
                           <div
+                            ref={previewRef}
+                            data-camera={cam}
                             className={
-                              mainCameraAspect == "tall" ? "w-full" : "h-full"
+                              mainCameraAspect == "tall"
+                                ? "w-full overflow-hidden rounded-lg border border-[rgba(203,213,225,0.11)] bg-[#131820]"
+                                : "h-full overflow-hidden rounded-lg border border-[rgba(203,213,225,0.11)] bg-[#131820]"
                             }
                             style={{
                               aspectRatio: getCameraAspect(cam),
                             }}
+                            onClick={() => onSelectCamera(cam)}
                           >
-                            <PreviewPlayer
-                              previewRef={previewRef}
-                              className="size-full"
-                              camera={cam}
-                              timeRange={currentTimeRange}
-                              cameraPreviews={allPreviews ?? []}
-                              startTime={startTime}
-                              isScrubbing={scrubbing}
-                              isVisible={visiblePreviews.includes(cam)}
-                              onControllerReady={(controller) => {
-                                previewRefs.current[cam] = controller;
-                                controller.scrubToTimestamp(startTime);
-                              }}
-                              onClick={() => onSelectCamera(cam)}
-                            />
+                            {playbackMode == "live" && config?.cameras[cam] ? (
+                              <LivePlayer
+                                key={`${cam}-live-preview`}
+                                className="size-full cursor-pointer rounded-none bg-black outline-offset-0 [&_*]:rounded-none"
+                                windowVisible={visiblePreviews.includes(cam)}
+                                showStillWithoutActivity={false}
+                                alwaysShowCameraName={false}
+                                cameraConfig={config.cameras[cam]}
+                                playAudio={false}
+                                playInBackground={false}
+                                preferredLiveMode={
+                                  preferredPreviewLiveModes[cam] ?? "jsmpeg"
+                                }
+                                useWebGL={true}
+                                streamName={previewLiveStreamNames[cam] ?? ""}
+                                hideActivityIndicator
+                              />
+                            ) : (
+                              <PreviewPlayer
+                                className="size-full rounded-none bg-black outline-offset-0 md:rounded-none [&_*]:rounded-none"
+                                camera={cam}
+                                timeRange={currentTimeRange}
+                                cameraPreviews={allPreviews ?? []}
+                                startTime={currentTime}
+                                isScrubbing={scrubbing}
+                                isVisible
+                                onControllerReady={(controller) => {
+                                  previewRefs.current[cam] = controller;
+                                  controller.scrubToTimestamp(currentTime);
+                                }}
+                              />
+                            )}
                           </div>
                         </TooltipTrigger>
                         <TooltipContent className="smart-capitalize">
@@ -959,6 +1218,7 @@ export function RecordingView({
           <Timeline
             contentRef={contentRef}
             mainCamera={mainCamera}
+            isLive={playbackMode == "live"}
             timelineType={
               (exportRange == undefined && debugReplayRange == undefined
                 ? timelineType
@@ -976,6 +1236,7 @@ export function RecordingView({
                   : undefined
             }
             setCurrentTime={setCurrentTime}
+            setCurrentTimeAndMode={setCurrentTimeAndMode}
             manuallySetCurrentTime={manuallySetCurrentTime}
             setScrubbing={setScrubbing}
             setExportRange={
@@ -996,6 +1257,7 @@ type TimelineProps = {
   contentRef: MutableRefObject<HTMLDivElement | null>;
   timelineRef?: MutableRefObject<HTMLDivElement | null>;
   mainCamera: string;
+  isLive: boolean;
   timelineType: TimelineType;
   timeRange: TimeRange;
   mainCameraReviewItems: ReviewSegment[];
@@ -1004,6 +1266,7 @@ type TimelineProps = {
   exportRange?: TimeRange;
   isPlaying?: boolean;
   setCurrentTime: React.Dispatch<React.SetStateAction<number>>;
+  setCurrentTimeAndMode: React.Dispatch<React.SetStateAction<number>>;
   manuallySetCurrentTime: (time: number, force: boolean) => void;
   setScrubbing: React.Dispatch<React.SetStateAction<boolean>>;
   setExportRange: (range: TimeRange) => void;
@@ -1013,6 +1276,7 @@ function Timeline({
   contentRef,
   timelineRef,
   mainCamera,
+  isLive,
   timelineType,
   timeRange,
   mainCameraReviewItems,
@@ -1021,6 +1285,7 @@ function Timeline({
   exportRange,
   isPlaying,
   setCurrentTime,
+  setCurrentTimeAndMode,
   manuallySetCurrentTime,
   setScrubbing,
   setExportRange,
@@ -1164,7 +1429,7 @@ function Timeline({
             setExportStartTime={setExportStartTime}
             setExportEndTime={setExportEndTime}
             handlebarTime={currentTime}
-            setHandlebarTime={setCurrentTime}
+            setHandlebarTime={setCurrentTimeAndMode}
             events={mainCameraReviewItems}
             motion_events={motionData ?? []}
             noRecordingRanges={noRecordings ?? []}
@@ -1175,6 +1440,7 @@ function Timeline({
             onZoomChange={handleZoomChange}
             possibleZoomLevels={possibleZoomLevels}
             currentZoomLevel={currentZoomLevel}
+            isLive={isLive}
           />
         ) : (
           <Skeleton className="size-full" />

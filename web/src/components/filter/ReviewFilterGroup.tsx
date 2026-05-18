@@ -53,6 +53,7 @@ type ReviewFilterGroupProps = {
   filterList?: FilterList;
   showReviewed: boolean;
   mainCamera?: string;
+  triggerClassName?: string;
   setShowReviewed: (show: boolean) => void;
   onUpdateFilter: (filter: ReviewFilter) => void;
   setMotionOnly: React.Dispatch<React.SetStateAction<boolean>>;
@@ -68,6 +69,7 @@ export default function ReviewFilterGroup({
   filterList,
   showReviewed,
   mainCamera,
+  triggerClassName,
   setShowReviewed,
   onUpdateFilter,
   setMotionOnly,
@@ -200,6 +202,7 @@ export default function ReviewFilterGroup({
           groups={groups}
           selectedCameras={filter?.cameras}
           mainCamera={mainCamera}
+          triggerClassName={triggerClassName}
           updateCameraFilter={(newCameras) => {
             onUpdateFilter({ ...filter, cameras: newCameras });
           }}
@@ -221,6 +224,7 @@ export default function ReviewFilterGroup({
               : new Date(filter.after * 1000)
           }
           updateSelectedDay={onUpdateSelectedDay}
+          triggerClassName={triggerClassName}
         />
       )}
       {filters.includes("motionOnly") && (
@@ -240,6 +244,7 @@ export default function ReviewFilterGroup({
           onUpdateFilter={(general) => {
             onUpdateFilter({ ...filter, ...general });
           }}
+          triggerClassName={triggerClassName}
         />
       )}
       {isMobile && mobileSettingsFeatures.length > 0 && (
@@ -320,6 +325,7 @@ type GeneralFilterButtonProps = {
   allZones: string[];
   selectedZones?: string[];
   filter?: GeneralFilter;
+  triggerClassName?: string;
   onUpdateFilter: (filter: GeneralFilter) => void;
 };
 
@@ -331,6 +337,7 @@ function GeneralFilterButton({
   showAll,
   allZones,
   selectedZones,
+  triggerClassName,
   onUpdateFilter,
 }: GeneralFilterButtonProps) {
   const { t } = useTranslation(["components/filter"]);
@@ -361,21 +368,27 @@ function GeneralFilterButton({
       variant={
         selectedLabels?.length || selectedZones?.length ? "select" : "default"
       }
-      className="flex items-center gap-2 smart-capitalize"
+      className={`flex items-center gap-2 smart-capitalize ${triggerClassName ?? ""}`}
       aria-label={t("filter")}
     >
       <FaFilter
-        className={`${
-          selectedLabels?.length || selectedZones?.length
-            ? "text-selected-foreground"
-            : "text-secondary-foreground"
-        }`}
+        className={
+          triggerClassName
+            ? "text-[#647184]"
+            : `${
+                selectedLabels?.length || selectedZones?.length
+                  ? "text-selected-foreground"
+                  : "text-secondary-foreground"
+              }`
+        }
       />
       <div
         className={`hidden md:block ${
-          selectedLabels?.length || selectedZones?.length
-            ? "text-selected-foreground"
-            : "text-primary"
+          triggerClassName
+            ? "text-slate-200"
+            : selectedLabels?.length || selectedZones?.length
+              ? "text-selected-foreground"
+              : "text-primary"
         }`}
       >
         {t("filter")}

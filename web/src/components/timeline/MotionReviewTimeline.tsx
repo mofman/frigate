@@ -52,6 +52,7 @@ export type MotionReviewTimelineProps = {
   onZoomChange?: (newZoomLevel: number) => void;
   possibleZoomLevels?: ZoomLevel[];
   currentZoomLevel?: number;
+  isLive?: boolean;
 };
 
 export function MotionReviewTimeline({
@@ -86,6 +87,7 @@ export function MotionReviewTimeline({
   onZoomChange,
   possibleZoomLevels,
   currentZoomLevel,
+  isLive = false,
 }: MotionReviewTimelineProps) {
   const internalTimelineRef = useRef<HTMLDivElement>(null);
   const selectedTimelineRef = timelineRef || internalTimelineRef;
@@ -227,6 +229,7 @@ export function MotionReviewTimeline({
       onZoomChange={onZoomChange}
       possibleZoomLevels={possibleZoomLevels}
       currentZoomLevel={currentZoomLevel}
+      isLive={isLive}
     >
       <VirtualizedMotionSegments
         ref={virtualizedSegmentsRef}

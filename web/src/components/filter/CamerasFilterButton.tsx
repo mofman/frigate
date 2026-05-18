@@ -21,6 +21,7 @@ type CameraFilterButtonProps = {
   selectedCameras: string[] | undefined;
   hideText?: boolean;
   mainCamera?: string;
+  triggerClassName?: string;
   updateCameraFilter: (cameras: string[] | undefined) => void;
 };
 export function CamerasFilterButton({
@@ -29,6 +30,7 @@ export function CamerasFilterButton({
   selectedCameras,
   hideText = isMobile,
   mainCamera,
+  triggerClassName,
   updateCameraFilter,
 }: CameraFilterButtonProps) {
   const { t } = useTranslation(["components/filter"]);
@@ -87,16 +89,26 @@ export function CamerasFilterButton({
 
   const trigger = (
     <Button
-      className="flex items-center gap-2 smart-capitalize"
+      className={`flex items-center gap-2 smart-capitalize ${triggerClassName ?? ""}`}
       aria-label={t("cameras.label")}
       variant={selectedCameras?.length == undefined ? "default" : "select"}
       size="sm"
     >
       <FaVideo
-        className={`${(selectedCameras?.length ?? 0) >= 1 ? "text-selected-foreground" : "text-secondary-foreground"}`}
+        className={
+          triggerClassName
+            ? "text-[#647184]"
+            : `${(selectedCameras?.length ?? 0) >= 1 ? "text-selected-foreground" : "text-secondary-foreground"}`
+        }
       />
       <div
-        className={`${hideText ? "hidden" : ""} ${selectedCameras?.length ? "text-selected-foreground" : "text-primary"}`}
+        className={`${hideText ? "hidden" : ""} ${
+          triggerClassName
+            ? "text-slate-200"
+            : selectedCameras?.length
+              ? "text-selected-foreground"
+              : "text-primary"
+        }`}
       >
         {buttonText}
       </div>
