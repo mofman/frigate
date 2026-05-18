@@ -4,6 +4,12 @@ import LivePlayer from "@/components/player/LivePlayer";
 import { useRecordingsState } from "@/api/ws";
 import { useCameraActivity } from "@/hooks/use-camera-activity";
 import { useCameraFriendlyName } from "@/hooks/use-camera-friendly-name";
+import {
+  useCurrentTimestamp,
+  useFormattedTimestamp,
+  useTimeFormat,
+  useTimezone,
+} from "@/hooks/use-date-utils";
 import { cn } from "@/lib/utils";
 import {
   AllGroupsStreamingSettings,
@@ -26,6 +32,7 @@ import {
 import { getIconForLabel } from "@/utils/iconUtil";
 import { Camera, CircleDot, Expand, User, Zap } from "lucide-react";
 import { MutableRefObject, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 type LiveDashboardCameraTileProps = {
@@ -84,6 +91,7 @@ export function LiveDashboardCameraTile({
   onSelectCamera,
   onError,
 }: LiveDashboardCameraTileProps) {
+  const { t } = useTranslation(["common"]);
   const availableStreams = camera.live.streams || {};
   const firstStreamEntry = Object.values(availableStreams)[0] || "";
   const streamNameFromSettings =
@@ -120,12 +128,14 @@ export function LiveDashboardCameraTile({
           ? activityType
           : null;
   const activityIsMotion = activityType === "motion";
-  const now = new Intl.DateTimeFormat(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).format(new Date());
+  const currentTimestamp = useCurrentTimestamp();
+  const timeFormat = useTimeFormat(config);
+  const timezone = useTimezone(config);
+  const now = useFormattedTimestamp(
+    currentTimestamp,
+    t(`time.formattedTimestampHourMinuteSecond.${timeFormat}`),
+    timezone,
+  );
   const recordingEnabled = camera.record.enabled_in_config;
 
   const handleSnapshot = useCallback(async () => {

@@ -1,7 +1,47 @@
 import { FrigateConfig } from "@/types/frigateConfig";
 import { formatUnixTimestampToDateTime } from "@/utils/dateUtil";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDateLocale } from "@/hooks/use-date-locale";
+
+export function useCurrentTimestamp(updateInterval = 1000) {
+  const [timestamp, setTimestamp] = useState(() => Date.now() / 1000);
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | undefined;
+    const updateTimestamp = () => setTimestamp(Date.now() / 1000);
+    const startInterval = () => {
+      stopInterval();
+      updateTimestamp();
+      interval = setInterval(updateTimestamp, updateInterval);
+    };
+    const stopInterval = () => {
+      if (interval) {
+        clearInterval(interval);
+        interval = undefined;
+      }
+    };
+    const visibilityListener = () => {
+      if (document.visibilityState === "visible") {
+        startInterval();
+      } else {
+        stopInterval();
+      }
+    };
+
+    if (document.visibilityState === "visible") {
+      startInterval();
+    }
+
+    addEventListener("visibilitychange", visibilityListener);
+
+    return () => {
+      stopInterval();
+      removeEventListener("visibilitychange", visibilityListener);
+    };
+  }, [updateInterval]);
+
+  return timestamp;
+}
 
 export function useFormattedTimestamp(
   timestamp: number,

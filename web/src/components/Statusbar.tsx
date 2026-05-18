@@ -3,9 +3,15 @@ import {
   StatusBarMessagesContext,
   StatusMessage,
 } from "@/context/statusbar-provider";
+import {
+  useCurrentTimestamp,
+  useTimezone,
+} from "@/hooks/use-date-utils";
 import useStats, { useAutoFrigateStats } from "@/hooks/use-stats";
 import { cn } from "@/lib/utils";
+import { FrigateConfig } from "@/types/frigateConfig";
 import type { ProfilesApiResponse } from "@/types/profile";
+import { formatUnixTimestampToDateTime } from "@/utils/dateUtil";
 import { getProfileColor } from "@/utils/profileColors";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useContext, useEffect, useMemo } from "react";
@@ -24,6 +30,9 @@ export default function Statusbar() {
     StatusBarMessagesContext,
   )!;
 
+  const { data: config } = useSWR<FrigateConfig>("config", {
+    revalidateOnFocus: false,
+  });
   const stats = useAutoFrigateStats();
 
   const cpuPercent = useMemo(() => {
@@ -80,13 +89,17 @@ export default function Statusbar() {
     return `${hours}h`;
   }, [stats]);
 
+  const currentTimestamp = useCurrentTimestamp();
+  const timezone = useTimezone(config);
   const statusDate = useMemo(
     () =>
-      new Intl.DateTimeFormat(undefined, {
-        dateStyle: "short",
-        timeStyle: "short",
-      }).format(new Date()),
-    [],
+      formatUnixTimestampToDateTime(currentTimestamp, {
+        timezone,
+        date_style: "short",
+        time_style: "medium",
+        time_format: "24hour",
+      }),
+    [currentTimestamp, timezone],
   );
 
   const { potentialProblems } = useStats(stats);
