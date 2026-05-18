@@ -1,4 +1,5 @@
 import { useFrigateReviews } from "@/api/ws";
+import { useResizeObserver } from "@/hooks/resize-observer";
 import { useUserPersistence } from "@/hooks/use-user-persistence";
 import {
   AllGroupsStreamingSettings,
@@ -7,6 +8,7 @@ import {
 } from "@/types/frigateConfig";
 import { ReviewSegment } from "@/types/review";
 import {
+  CSSProperties,
   useCallback,
   useContext,
   useEffect,
@@ -14,7 +16,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { isDesktop, isMobileOnly } from "react-device-detect";
+import { isMobileOnly } from "react-device-detect";
 import useSWR from "swr";
 import DraggableGridLayout from "./DraggableGridLayout";
 import { cn } from "@/lib/utils";
@@ -47,6 +49,103 @@ type LiveDashboardViewProps = {
   fullscreen: boolean;
   toggleFullscreen: () => void;
 };
+
+type DashboardTileLayout = {
+  key: string;
+  aspectRatio: number;
+  style: CSSProperties;
+};
+
+function getDashboardSpacing(width: number) {
+  if (width >= 900) {
+    return { gap: 12, padding: 16 };
+  }
+
+  if (width >= 768) {
+    return { gap: 12, padding: 12 };
+  }
+
+  return { gap: 8, padding: 10 };
+}
+
+function getFitAllDashboardLayout(
+  items: { key: string; aspectRatio: number }[],
+  containerWidth: number,
+  containerHeight: number,
+) {
+  const { gap, padding } = getDashboardSpacing(containerWidth);
+  const availableWidth = Math.max(0, containerWidth - padding * 2);
+  const availableHeight = Math.max(0, containerHeight - padding * 2);
+
+  if (!items.length || !availableWidth || !availableHeight) {
+    return {
+      columns: 1,
+      layouts: items.map<DashboardTileLayout>((item) => ({
+        ...item,
+        style: { aspectRatio: `${item.aspectRatio}` },
+      })),
+    };
+  }
+
+  let best = {
+    columns: 1,
+    tileWidth: 0,
+  };
+
+  for (let columns = 1; columns <= items.length; columns++) {
+    const rowCount = Math.ceil(items.length / columns);
+    const columnWidth = (availableWidth - gap * (columns - 1)) / columns;
+    const rowHeights: number[] = [];
+
+    for (let row = 0; row < rowCount; row++) {
+      const rowItems = items.slice(row * columns, row * columns + columns);
+      rowHeights.push(
+        Math.max(...rowItems.map((item) => columnWidth / item.aspectRatio)),
+      );
+    }
+
+    const totalGapHeight = gap * (rowCount - 1);
+    const totalTileHeight = rowHeights.reduce((sum, height) => sum + height, 0);
+    const scale =
+      totalTileHeight > 0
+        ? Math.min(1, (availableHeight - totalGapHeight) / totalTileHeight)
+        : 1;
+    const tileWidth = Math.max(0, columnWidth * scale);
+
+    if (tileWidth > best.tileWidth) {
+      best = { columns, tileWidth };
+    }
+  }
+
+  return {
+    columns: best.columns,
+    layouts: items.map<DashboardTileLayout>((item) => ({
+      ...item,
+      style: {
+        aspectRatio: `${item.aspectRatio}`,
+        justifySelf: "center",
+        maxWidth: "100%",
+        width: best.tileWidth ? `${best.tileWidth}px` : "100%",
+      },
+    })),
+  };
+}
+
+function getScrollingDashboardLayout(
+  items: { key: string; aspectRatio: number }[],
+) {
+  return {
+    columns: 1,
+    layouts: items.map<DashboardTileLayout>((item) => ({
+      ...item,
+      style: {
+        aspectRatio: `${item.aspectRatio}`,
+        width: "100%",
+      },
+    })),
+  };
+}
+
 export default function LiveDashboardView({
   cameras,
   cameraGroup,
@@ -60,14 +159,12 @@ export default function LiveDashboardView({
 
   // layout
 
-  const [mobileLayout] = useUserPersistence<"grid" | "list">(
-    "live-layout",
-    isDesktop ? "grid" : "list",
-  );
-
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const dashboardGridContainerRef = useRef<HTMLDivElement>(null);
   const birdseyeContainerRef = useRef<HTMLDivElement>(null);
+  const [{ width: dashboardGridWidth, height: dashboardGridHeight }] =
+    useResizeObserver(dashboardGridContainerRef);
 
   // recent events
 
@@ -237,6 +334,58 @@ export default function LiveDashboardView({
   } = useCameraLiveMode(cameras, windowVisible, activeStreams);
 
   const birdseyeConfig = useMemo(() => config?.birdseye, [config]);
+  const fitAllDashboard = !isMobileOnly;
+  const dashboardItems = useMemo(() => {
+    const items: { key: string; aspectRatio: number }[] = [];
+
+    if (includeBirdseye && birdseyeConfig?.enabled) {
+      items.push({
+        key: "birdseye",
+        aspectRatio: birdseyeConfig.width / birdseyeConfig.height,
+      });
+    }
+
+    cameras.forEach((camera) => {
+      items.push({
+        key: camera.name,
+        aspectRatio: camera.detect.width / camera.detect.height,
+      });
+    });
+
+    return items;
+  }, [birdseyeConfig, cameras, includeBirdseye]);
+  const dashboardLayout = useMemo(
+    () => {
+      if (!fitAllDashboard) {
+        return getScrollingDashboardLayout(dashboardItems);
+      }
+
+      const fitLayout = getFitAllDashboardLayout(
+        dashboardItems,
+        dashboardGridWidth,
+        dashboardGridHeight,
+      );
+
+      if (dashboardItems.length > 1 && fitLayout.columns === 1) {
+        return getScrollingDashboardLayout(dashboardItems);
+      }
+
+      return fitLayout;
+    },
+    [
+      dashboardGridHeight,
+      dashboardGridWidth,
+      dashboardItems,
+      fitAllDashboard,
+    ],
+  );
+  const dashboardLayoutByKey = useMemo(
+    () =>
+      Object.fromEntries(
+        dashboardLayout.layouts.map((layout) => [layout.key, layout]),
+      ),
+    [dashboardLayout.layouts],
+  );
 
   const handleError = useCallback(
     (cameraName: string, error: LivePlayerError) => {
@@ -384,60 +533,39 @@ export default function LiveDashboardView({
                 selectedGroup={cameraGroup}
               />
             )}
-            <div className="scrollbar-container min-h-0 overflow-visible md:overflow-y-auto">
+            <div
+              className={cn(
+                "scrollbar-container min-h-0 overflow-visible",
+                fitAllDashboard && dashboardLayout.columns > 1
+                  ? "md:overflow-hidden"
+                  : "md:overflow-y-auto",
+              )}
+              ref={dashboardGridContainerRef}
+            >
               <div
                 className={cn(
-                  "grid grid-cols-1 content-start gap-2 p-2.5 md:grid-cols-2 md:gap-3 md:p-3 min-[900px]:p-4",
+                  "grid grid-cols-1 content-start justify-items-center gap-2 p-2.5 md:gap-3 md:p-3 min-[900px]:p-4",
                 )}
+                style={{
+                  gridTemplateColumns:
+                    fitAllDashboard && dashboardLayout.columns > 1
+                      ? `repeat(${dashboardLayout.columns}, minmax(0, 1fr))`
+                      : undefined,
+                }}
               >
                 {includeBirdseye && birdseyeConfig?.enabled && (
                   <LiveDashboardBirdseyeTile
-                    className={(() => {
-                      const aspectRatio =
-                        birdseyeConfig.width / birdseyeConfig.height;
-                      if (aspectRatio > 2) {
-                        return cn(
-                          "aspect-video",
-                          mobileLayout == "grid" && "md:col-span-2",
-                          "md:aspect-wide",
-                        );
-                      } else if (aspectRatio < 1) {
-                        return cn(
-                          "aspect-video",
-                          mobileLayout == "grid" && "md:row-span-2 md:h-full",
-                          "md:aspect-tall",
-                        );
-                      } else {
-                        return "aspect-video";
-                      }
-                    })()}
+                    style={dashboardLayoutByKey.birdseye?.style}
                     birdseyeConfig={birdseyeConfig}
                     containerRef={birdseyeContainerRef}
                     onSelectCamera={onSelectCamera}
                   />
                 )}
                 {cameras.map((camera) => {
-                  const aspectRatio =
-                    camera.detect.width / camera.detect.height;
-                  const tileClass =
-                    aspectRatio > 2
-                      ? cn(
-                          "aspect-video",
-                          mobileLayout == "grid" && "md:col-span-2",
-                          "md:aspect-wide",
-                        )
-                      : aspectRatio < 1
-                        ? cn(
-                            "aspect-video",
-                            mobileLayout == "grid" && "md:row-span-2 md:h-full",
-                            "md:aspect-tall",
-                          )
-                        : "aspect-video";
-
                   return (
                     <LiveDashboardCameraTile
                       key={camera.name}
-                      className={tileClass}
+                      style={dashboardLayoutByKey[camera.name]?.style}
                       camera={camera}
                       cameraGroup={cameraGroup}
                       config={config}

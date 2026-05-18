@@ -1,4 +1,5 @@
 import {
+  CSSProperties,
   ReactNode,
   useCallback,
   useEffect,
@@ -53,6 +54,7 @@ import { LiveStreamMetadata } from "@/types/live";
 
 type LiveContextMenuProps = {
   className?: string;
+  style?: CSSProperties;
   camera: string;
   streamName: string;
   cameraGroup?: string;
@@ -74,6 +76,7 @@ type LiveContextMenuProps = {
 };
 export default function LiveContextMenu({
   className,
+  style,
   camera,
   streamName,
   cameraGroup,
@@ -271,7 +274,7 @@ export default function LiveContextMenu({
   };
 
   return (
-    <div className={cn("w-full", className)}>
+    <div className={cn("w-full", className)} style={style}>
       <ContextMenu key={camera} onOpenChange={handleOpenChange}>
         <ContextMenuTrigger>{children}</ContextMenuTrigger>
         <ContextMenuContent>

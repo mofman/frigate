@@ -31,7 +31,7 @@ import {
 } from "@/utils/snapshotUtil";
 import { getIconForLabel } from "@/utils/iconUtil";
 import { Camera, CircleDot, Expand, User, Zap } from "lucide-react";
-import { MutableRefObject, useCallback } from "react";
+import { CSSProperties, MutableRefObject, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
@@ -40,6 +40,7 @@ type LiveDashboardCameraTileProps = {
   cameraGroup: string;
   config?: FrigateConfig;
   className?: string;
+  style?: CSSProperties;
   cameraRef: (node: HTMLElement | null) => void;
   windowVisible: boolean;
   visible: boolean;
@@ -70,6 +71,7 @@ export function LiveDashboardCameraTile({
   cameraGroup,
   config,
   className,
+  style,
   cameraRef,
   windowVisible,
   visible,
@@ -160,6 +162,7 @@ export function LiveDashboardCameraTile({
           "border-amber-500/60 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.14)]",
         className,
       )}
+      style={style}
       camera={camera.name}
       cameraGroup={cameraGroup}
       streamName={streamName}
@@ -292,6 +295,7 @@ export function LiveDashboardCameraTile({
 type LiveDashboardBirdseyeTileProps = {
   birdseyeConfig: BirdseyeConfig;
   className?: string;
+  style?: CSSProperties;
   containerRef: MutableRefObject<HTMLDivElement | null>;
   onSelectCamera: (cameraName: string) => void;
 };
@@ -299,6 +303,7 @@ type LiveDashboardBirdseyeTileProps = {
 export function LiveDashboardBirdseyeTile({
   birdseyeConfig,
   className,
+  style,
   containerRef,
   onSelectCamera,
 }: LiveDashboardBirdseyeTileProps) {
@@ -308,6 +313,7 @@ export function LiveDashboardBirdseyeTile({
         "overflow-hidden rounded-lg border border-[rgba(203,213,225,0.11)] bg-[#131820] shadow-[0_1px_0_rgba(255,255,255,0.03)] transition hover:border-[rgba(169,182,186,0.26)] hover:shadow-2xl hover:shadow-black/30",
         className,
       )}
+      style={style}
       ref={containerRef}
     >
       <BirdseyeLivePlayer
