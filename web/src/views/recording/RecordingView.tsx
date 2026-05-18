@@ -1156,15 +1156,16 @@ export function RecordingView({
           <div
             ref={cameraLayoutRef}
             className={cn(
-              "flex flex-1 flex-wrap overflow-hidden",
+              "relative flex flex-1 flex-wrap overflow-hidden",
               isDesktop
                 ? "min-w-0 px-4 py-4"
                 : "portrait:max-h-[50dvh] portrait:flex-shrink-0 portrait:flex-grow-0 portrait:basis-auto",
             )}
           >
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_34%,rgba(90,167,255,0.22),rgba(90,167,255,0.08)_34%,transparent_62%),radial-gradient(ellipse_at_50%_82%,rgba(15,23,42,0.88),transparent_54%),linear-gradient(90deg,rgba(5,6,7,0.98),rgba(13,17,20,0.18)_22%,rgba(13,17,20,0.18)_78%,rgba(5,6,7,0.98)),linear-gradient(180deg,rgba(19,24,32,0.64),rgba(5,6,7,0.98))]" />
             <div
               className={cn(
-                "flex size-full items-center",
+                "relative z-10 flex size-full items-center",
                 mainCameraAspect == "tall"
                   ? "flex-row justify-evenly"
                   : "flex-col justify-center gap-2",
