@@ -3,9 +3,7 @@ import * as monaco from "monaco-editor";
 import { configureMonacoYaml } from "monaco-yaml";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useApiHost } from "@/api";
-import Heading from "@/components/ui/heading";
 import ActivityIndicator from "@/components/indicators/activity-indicator";
-import { Button } from "@/components/ui/button";
 import axios, { AxiosError } from "axios";
 import copy from "copy-to-clipboard";
 import { useTheme } from "@/context/theme-provider";
@@ -18,6 +16,7 @@ import { useTranslation } from "react-i18next";
 import { useRestart } from "@/api/ws";
 import { useResizeObserver } from "@/hooks/resize-observer";
 import { FrigateConfig } from "@/types/frigateConfig";
+import { cn } from "@/lib/utils";
 
 type SaveOptions = "saveonly" | "restart";
 
@@ -25,6 +24,43 @@ type ApiErrorResponse = {
   message?: string;
   detail?: string;
 };
+
+const dashboardEditorTheme = "frigate-dashboard-dark";
+
+function defineDashboardEditorTheme() {
+  monaco.editor.defineTheme(dashboardEditorTheme, {
+    base: "vs-dark",
+    inherit: true,
+    rules: [
+      { token: "", foreground: "cbd5e1", background: "08090b" },
+      { token: "comment", foreground: "6b8e5f", fontStyle: "italic" },
+      { token: "keyword", foreground: "5cc8b2" },
+      { token: "number", foreground: "d9a06f" },
+      { token: "string", foreground: "c7926f" },
+      { token: "type", foreground: "7db7ff" },
+    ],
+    colors: {
+      "editor.background": "#08090b",
+      "editor.foreground": "#cbd5e1",
+      "editor.lineHighlightBackground": "#131820",
+      "editor.selectionBackground": "#28435f",
+      "editor.inactiveSelectionBackground": "#1f2b38",
+      "editorCursor.foreground": "#7db7ff",
+      "editorLineNumber.foreground": "#647184",
+      "editorLineNumber.activeForeground": "#cbd5e1",
+      "editorGutter.background": "#08090b",
+      "editorIndentGuide.background1": "#26313d",
+      "editorIndentGuide.activeBackground1": "#4a5b6d",
+      "scrollbarSlider.background": "#64718444",
+      "scrollbarSlider.hoverBackground": "#7db7ff55",
+      "scrollbarSlider.activeBackground": "#7db7ff77",
+      "minimap.background": "#08090b",
+      "minimapSlider.background": "#64718433",
+      "minimapSlider.hoverBackground": "#7db7ff44",
+      "minimapSlider.activeBackground": "#7db7ff66",
+    },
+  });
+}
 
 function ConfigEditor() {
   const { t } = useTranslation(["views/configEditor"]);
@@ -112,6 +148,8 @@ function ConfigEditor() {
       return;
     }
 
+    defineDashboardEditorTheme();
+
     const modelUri = monaco.Uri.parse(
       `a://b/api/config/schema_${Date.now()}.json`,
     );
@@ -143,11 +181,25 @@ function ConfigEditor() {
     const container = configRef.current;
 
     if (container && !editorRef.current) {
+      const isSmallViewport = window.innerWidth < 768;
+
       editorRef.current = monaco.editor.create(container, {
         language: "yaml",
         model: modelRef.current,
+        automaticLayout: true,
+        fontFamily:
+          '"JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace',
+        fontSize: 14,
+        lineHeight: 22,
+        lineNumbersMinChars: 3,
+        minimap: { enabled: !isSmallViewport },
+        overviewRulerBorder: false,
+        padding: { top: 10, bottom: 10 },
+        renderLineHighlight: "line",
         scrollBeyondLastLine: false,
-        theme: (systemTheme || theme) == "dark" ? "vs-dark" : "vs-light",
+        theme:
+          (systemTheme || theme) == "dark" ? dashboardEditorTheme : "vs-light",
+        wordWrap: isSmallViewport ? "on" : "off",
       });
       editorRef.current?.addCommand(
         monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
@@ -171,6 +223,16 @@ function ConfigEditor() {
       schemaConfiguredRef.current = false;
     };
   }, [rawConfig, apiHost, systemTheme, theme, onHandleSaveConfig]);
+
+  useEffect(() => {
+    if (!editorRef.current) {
+      return;
+    }
+
+    monaco.editor.setTheme(
+      (systemTheme || theme) == "dark" ? dashboardEditorTheme : "vs-light",
+    );
+  }, [systemTheme, theme]);
 
   // when in safe mode, attempt to validate the existing (invalid) config immediately
   // so that the user sees the validation errors without needing to press save
@@ -258,66 +320,79 @@ function ConfigEditor() {
   }, [error, width, height]);
 
   if (!rawConfig) {
-    return <ActivityIndicator />;
+    return (
+      <div className="flex size-full items-center justify-center bg-[#08090b]">
+        <ActivityIndicator />
+      </div>
+    );
   }
 
   return (
-    <div className="absolute bottom-2 left-0 right-0 top-2 md:left-2">
-      <div className="relative flex h-full flex-col overflow-hidden">
-        <div className="mr-1 flex items-center justify-between">
-          <div>
-            <Heading as="h2" className="mb-0 ml-1 md:ml-0">
+    <div
+      className="flex size-full flex-col overflow-hidden text-slate-100"
+      style={{
+        background:
+          "radial-gradient(circle at 48% -20%, rgba(90, 167, 255, 0.09), transparent 34%), linear-gradient(180deg, rgba(18, 24, 32, 0.98), #08090b 46%), #08090b",
+      }}
+    >
+      <header className="flex shrink-0 items-center justify-between gap-3 border-b border-[rgba(203,213,225,0.11)] bg-[rgba(13,17,20,0.82)] px-3 py-3 backdrop-blur-xl md:px-6 md:py-[14px]">
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-3">
+            <h1 className="truncate text-lg font-semibold text-slate-100">
               {t(config?.safe_mode ? "safeConfigEditor" : "configEditor")}
-            </Heading>
-            {config?.safe_mode && (
-              <div className="text-sm text-secondary-foreground">
-                {t("safeModeDescription")}
-              </div>
+            </h1>
+            {hasChanges && (
+              <span className="rounded border border-[#7db7ff]/20 bg-[#7db7ff]/10 px-2 py-0.5 text-xs font-medium text-[#7db7ff]">
+                {t("unsavedChanges", { defaultValue: "Unsaved" })}
+              </span>
             )}
           </div>
-          <div className="flex flex-row gap-1">
-            <Button
-              size="sm"
-              className="flex items-center gap-2"
-              aria-label={t("copyConfig")}
-              onClick={() => handleCopyConfig()}
-            >
-              <LuCopy className="text-secondary-foreground" />
-              <span className="hidden md:block">{t("copyConfig")}</span>
-            </Button>
-            <Button
-              size="sm"
-              className="flex items-center gap-2"
-              aria-label={t("saveAndRestart")}
-              onClick={handleSaveAndRestart}
-            >
-              <div className="relative size-5">
-                <LuSave className="absolute left-0 top-0 size-3 text-secondary-foreground" />
-                <MdOutlineRestartAlt className="absolute size-4 translate-x-1 translate-y-1/2 text-secondary-foreground" />
-              </div>
-              <span className="hidden md:block">{t("saveAndRestart")}</span>
-            </Button>
-            <Button
-              size="sm"
-              className="flex items-center gap-2"
-              aria-label={t("saveOnly")}
-              onClick={() => onHandleSaveConfig("saveonly")}
-            >
-              <LuSave className="text-secondary-foreground" />
-              <span className="hidden md:block">{t("saveOnly")}</span>
-            </Button>
-          </div>
-        </div>
-
-        <div className="mt-2 flex flex-1 flex-col overflow-hidden">
-          {error && (
-            <div className="mt-2 max-h-[30%] min-h-[2.5rem] overflow-auto whitespace-pre-wrap border-2 border-muted bg-background_alt p-4 text-sm text-danger md:max-h-[40%]">
-              {error}
+          {config?.safe_mode && (
+            <div className="mt-1 truncate text-sm text-slate-400">
+              {t("safeModeDescription")}
             </div>
           )}
-          <div ref={configRef} className="flex-1 overflow-hidden" />
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          <HeaderActionButton
+            aria-label={t("copyConfig")}
+            onClick={() => handleCopyConfig()}
+          >
+            <LuCopy className="size-4" />
+            <span className="hidden md:block">{t("copyConfig")}</span>
+          </HeaderActionButton>
+          <HeaderActionButton
+            aria-label={t("saveAndRestart")}
+            onClick={handleSaveAndRestart}
+          >
+            <div className="relative size-5">
+              <LuSave className="absolute left-0 top-0 size-3" />
+              <MdOutlineRestartAlt className="absolute size-4 translate-x-1 translate-y-1/2" />
+            </div>
+            <span className="hidden md:block">{t("saveAndRestart")}</span>
+          </HeaderActionButton>
+          <HeaderActionButton
+            aria-label={t("saveOnly")}
+            onClick={() => onHandleSaveConfig("saveonly")}
+          >
+            <LuSave className="size-4" />
+            <span className="hidden md:block">{t("saveOnly")}</span>
+          </HeaderActionButton>
+        </div>
+      </header>
+
+      <div className="flex min-h-0 flex-1 flex-col gap-3 p-2.5 md:p-4">
+        {error && (
+          <div className="max-h-[30%] min-h-[2.5rem] overflow-auto whitespace-pre-wrap rounded-[4px] border border-red-500/30 bg-red-950/20 p-4 text-sm text-red-300 shadow-[0_12px_36px_rgba(0,0,0,0.24)] md:max-h-[40%]">
+            {error}
+          </div>
+        )}
+        <div className="min-h-0 flex-1 overflow-hidden rounded-[4px] border border-[rgba(203,213,225,0.11)] bg-[#08090b] shadow-[0_18px_60px_rgba(0,0,0,0.35)]">
+          <div ref={configRef} className="size-full overflow-hidden" />
         </div>
       </div>
+
       <Toaster closeButton={true} />
       <RestartDialog
         isOpen={restartDialogOpen}
@@ -325,6 +400,25 @@ function ConfigEditor() {
         onRestart={() => sendRestart("restart")}
       />
     </div>
+  );
+}
+
+function HeaderActionButton({
+  className,
+  children,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      className={cn(
+        "flex h-[34px] min-w-[34px] items-center justify-center gap-2 rounded-[4px] border border-[rgba(203,213,225,0.11)] bg-[#131820] px-2.5 text-sm font-medium text-slate-300 transition-colors hover:border-[rgba(169,182,186,0.28)] hover:bg-[#222c38] hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7db7ff] focus-visible:ring-offset-2 focus-visible:ring-offset-[#08090b] disabled:pointer-events-none disabled:opacity-50 md:px-3",
+        className,
+      )}
+      type="button"
+      {...props}
+    >
+      {children}
+    </button>
   );
 }
 

@@ -283,7 +283,7 @@ export default function DetailStream({
         }}
       />
 
-      <div className="relative flex h-full flex-col">
+      <div className="relative flex h-full flex-col border-l border-[rgba(203,213,225,0.11)] bg-[rgba(13,17,20,0.92)]">
         {controlsExpanded && (
           <div
             className="absolute inset-0 z-20 cursor-pointer bg-black/50"
@@ -292,11 +292,11 @@ export default function DetailStream({
         )}
         <div
           ref={scrollRef}
-          className="scrollbar-container flex-1 overflow-y-auto overflow-x-hidden pb-14"
+          className="scrollbar-container flex-1 overflow-y-auto overflow-x-hidden pb-16"
         >
-          <div className="space-y-4 py-2">
+          <div className="space-y-3 p-3">
             {reviewItems?.length === 0 ? (
-              <div className="py-8 text-center text-muted-foreground">
+              <div className="rounded-[4px] border border-[rgba(203,213,225,0.11)] bg-[#131820] px-4 py-8 text-center text-sm text-slate-500">
                 {t("detail.noDataFound")}
               </div>
             ) : (
@@ -324,22 +324,22 @@ export default function DetailStream({
 
         <div
           className={cn(
-            "absolute bottom-0 left-0 right-0 z-30 rounded-t-md border border-secondary-highlight bg-background_alt shadow-md",
+            "absolute bottom-0 left-0 right-0 z-30 rounded-t-[4px] border border-[rgba(203,213,225,0.11)] bg-[rgba(13,17,20,0.96)] shadow-[0_-12px_36px_rgba(0,0,0,0.28)] backdrop-blur-xl",
             isDesktop && "border-b-0",
           )}
         >
           <button
             onClick={() => setControlsExpanded(!controlsExpanded)}
-            className="flex w-full items-center justify-between p-3"
+            className="flex w-full items-center justify-between p-3 text-slate-100 transition-colors hover:bg-[#19212b]"
           >
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <PiSlidersHorizontalBold className="size-4" />
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-100">
+              <PiSlidersHorizontalBold className="size-4 text-slate-400" />
               <span>{t("detail.settings")}</span>
             </div>
             {controlsExpanded ? (
-              <LuChevronDown className="size-4 text-primary-variant" />
+              <LuChevronDown className="size-4 text-slate-400" />
             ) : (
-              <LuChevronRight className="size-4 text-primary-variant" />
+              <LuChevronRight className="size-4 text-slate-400" />
             )}
           </button>
           {controlsExpanded && (
@@ -348,7 +348,7 @@ export default function DetailStream({
               <Separator />
               <div className="flex flex-col gap-1">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium">
+                  <label className="text-sm font-medium text-slate-100">
                     {t("detail.alwaysExpandActive.title")}
                   </label>
                   <Switch
@@ -356,7 +356,7 @@ export default function DetailStream({
                     onCheckedChange={setAlwaysExpandActive}
                   />
                 </div>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-xs text-slate-500">
                   {t("detail.alwaysExpandActive.desc")}
                 </div>
               </div>
@@ -472,23 +472,24 @@ function ReviewGroup({
   return (
     <div
       data-review-id={id}
-      className={`mx-1 cursor-pointer rounded-lg bg-secondary px-0 py-3 outline outline-[2px] -outline-offset-[1.8px] ${
+      className={cn(
+        "cursor-pointer overflow-hidden rounded-[4px] border border-[rgba(203,213,225,0.11)] bg-[#131820] shadow-[0_1px_0_rgba(255,255,255,0.03)] transition-colors",
         isActive
-          ? "shadow-selected outline-selected"
-          : "outline-transparent duration-500"
-      }`}
+          ? "border-[rgba(92,120,255,0.72)] bg-[#1a2540] shadow-[0_0_0_1px_rgba(92,120,255,0.35)]"
+          : "hover:border-[rgba(169,182,186,0.28)] hover:bg-[#19212b]",
+      )}
     >
       <div
         className={cn(
-          "flex items-start",
-          open && "border-b border-secondary-highlight pb-4",
+          "flex items-start p-4",
+          open && "border-b border-[rgba(203,213,225,0.11)]",
         )}
         onClick={() => {
           onActivate?.();
           onSeek(startRecord);
         }}
       >
-        <div className="ml-4 mr-2 mt-1.5 flex flex-row items-start">
+        <div className="mr-3 mt-1.5 flex flex-row items-start">
           <LuCircle
             className={cn(
               "size-3 duration-500",
@@ -498,15 +499,17 @@ function ReviewGroup({
             )}
           />
         </div>
-        <div className="mr-3 grid w-full grid-cols-[1fr_auto] gap-2">
-          <div className="ml-1 flex min-w-0 flex-col gap-1.5">
+        <div className="grid w-full grid-cols-[1fr_auto] gap-2">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <div className="flex flex-row gap-3">
-              <div className="text-sm font-medium">{displayTime}</div>
+              <div className="font-mono text-sm font-medium text-slate-100">
+                {displayTime}
+              </div>
               <div className="relative flex items-center gap-2 text-white">
                 {iconLabels.slice(0, 5).map(({ label: lbl, type }, idx) => (
                   <div
                     key={`${lbl}-${idx}`}
-                    className="rounded-full bg-muted-foreground p-1"
+                    className="rounded-full bg-[#647184] p-1"
                   >
                     {getIconForLabel(lbl, type, "size-3 text-white")}
                   </div>
@@ -515,7 +518,7 @@ function ReviewGroup({
             </div>
             <div className="flex flex-col gap-0.5">
               {review.data.metadata?.title && (
-                <div className="mb-1 flex min-w-0 items-center gap-1 text-sm text-primary-variant">
+                <div className="mb-1 flex min-w-0 items-center gap-1 text-sm text-[#7db7ff]">
                   <Tooltip>
                     <TooltipTrigger>
                       <MdAutoAwesome className="size-3 shrink-0" />
@@ -539,12 +542,12 @@ function ReviewGroup({
                 </div>
               )}
               <div className="flex flex-row items-center gap-1.5">
-                <div className="text-xs text-primary-variant">{reviewInfo}</div>
+                <div className="text-xs text-slate-400">{reviewInfo}</div>
 
                 {reviewDuration && (
                   <>
-                    <span className="text-[5px] text-primary-variant">•</span>
-                    <div className="text-xs text-primary-variant">
+                    <span className="text-[5px] text-slate-500">•</span>
+                    <div className="text-xs text-slate-400">
                       {reviewDuration}
                     </div>
                   </>
@@ -557,19 +560,19 @@ function ReviewGroup({
               e.stopPropagation();
               setOpen((v) => !v);
             }}
-            className="inline-flex items-center justify-center self-center rounded p-1 hover:bg-secondary/10"
+            className="inline-flex items-center justify-center self-center rounded-[4px] p-1 text-slate-400 transition-colors hover:bg-[#222c38] hover:text-slate-100"
           >
             {open ? (
-              <LuChevronDown className="size-4 text-primary-variant" />
+              <LuChevronDown className="size-4" />
             ) : (
-              <LuChevronRight className="size-4 text-primary-variant" />
+              <LuChevronRight className="size-4" />
             )}
           </div>
         </div>
       </div>
 
       {open && (
-        <div className="space-y-0.5">
+        <div className="space-y-1 p-2">
           {shouldFetchEvents && isValidating && !fetchedEvents ? (
             <ActivityIndicator />
           ) : (
@@ -597,10 +600,10 @@ function ReviewGroup({
               {review.data.audio.map((audioLabel) => (
                 <div
                   key={audioLabel}
-                  className="rounded-md bg-secondary p-2 outline outline-[3px] -outline-offset-[2.8px] outline-transparent duration-500"
+                  className="rounded-[4px] border border-[rgba(203,213,225,0.11)] bg-[#08090b]/70 p-2"
                 >
-                  <div className="ml-1.5 flex items-center gap-2 text-sm font-medium">
-                    <div className="rounded-full bg-muted-foreground p-1">
+                  <div className="flex items-center gap-2 text-sm font-medium text-slate-100">
+                    <div className="rounded-full bg-[#647184] p-1">
                       {getIconForLabel(
                         audioLabel,
                         "audio",
@@ -682,22 +685,22 @@ function EventList({
     <>
       <div
         className={cn(
-          "rounded-md bg-secondary p-2",
+          "rounded-[4px] border border-transparent bg-[#08090b]/70 p-2 transition-colors",
           isSelected
-            ? "bg-secondary-highlight"
-            : "outline-transparent duration-500",
+            ? "border-[rgba(92,120,255,0.55)] bg-[#1a2540]"
+            : "hover:border-[rgba(203,213,225,0.11)] hover:bg-[#19212b]",
         )}
       >
-        <div className="ml-1.5 flex w-full items-end justify-between">
-          <div className="flex flex-1 items-center gap-2 text-sm font-medium">
+        <div className="flex w-full items-end justify-between">
+          <div className="flex flex-1 items-center gap-2 text-sm font-medium text-slate-100">
             <div
               className={cn(
-                "relative rounded-full p-1 text-white",
+                "relative flex size-7 shrink-0 items-center justify-center rounded-full text-white",
                 (effectiveTime ?? 0) >= (event.start_time ?? 0) - 0.5 &&
                   (effectiveTime ?? 0) <=
                     (event.end_time ?? event.start_time ?? 0) + 0.5
-                  ? "bg-selected"
-                  : "bg-muted-foreground",
+                  ? "bg-[#5c78ff]"
+                  : "bg-[#647184]",
               )}
               onClick={(e) => {
                 e.stopPropagation();
@@ -708,7 +711,7 @@ function EventList({
               {getIconForLabel(
                 event.sub_label ? event.label + "-verified" : event.label,
                 event.data.type,
-                "size-3 text-white",
+                "size-4 text-white",
               )}
             </div>
             <div
@@ -723,8 +726,8 @@ function EventList({
                 <span className="capitalize">{label}</span>
                 {event.data?.recognized_license_plate && (
                   <>
-                    <span className="text-secondary-foreground">·</span>
-                    <div className="text-sm text-secondary-foreground">
+                    <span className="text-slate-500">·</span>
+                    <div className="text-sm text-slate-400">
                       <Link
                         to={`/explore?recognized_license_plate=${event.data.recognized_license_plate}`}
                         className="text-sm"
@@ -737,7 +740,7 @@ function EventList({
               </div>
             </div>
           </div>
-          <div className="mr-2 flex flex-row justify-end">
+          <div className="mr-1 flex flex-row justify-end">
             <EventMenu
               event={event}
               config={config}
@@ -880,19 +883,19 @@ function LifecycleItem({
         onSeek?.(recordTimestamp, false);
       }}
       className={cn(
-        "flex cursor-pointer items-center gap-2 text-sm text-primary-variant",
+        "flex cursor-pointer items-center gap-2 text-sm text-slate-400 transition-colors hover:text-slate-100",
         isActive
-          ? "font-semibold text-primary dark:font-normal"
+          ? "font-semibold text-slate-100 dark:font-normal"
           : "duration-500",
       )}
     >
-      <div className="relative flex size-4 items-center justify-center">
-        <LuCircle
+      <div className="relative flex size-7 shrink-0 items-center justify-center">
+        <span
           className={cn(
-            "relative z-10 size-2.5 fill-secondary-foreground stroke-none",
+            "relative z-10 size-2 rounded-full border border-[#647184] bg-[#131820] shadow-[0_0_0_3px_rgba(8,9,11,0.9)]",
             (isActive || (effectiveTime ?? 0) >= (item?.timestamp ?? 0)) &&
               isTimelineActive &&
-              "fill-selected duration-300",
+              "border-[#5c78ff] bg-[#5c78ff] duration-300",
           )}
         />
       </div>
@@ -979,7 +982,7 @@ function LifecycleItem({
         </Tooltip>
       </div>
 
-      <div className="ml-3 flex-shrink-0 px-1 text-right text-xs text-primary-variant">
+      <div className="ml-3 flex-shrink-0 px-1 text-right font-mono text-xs text-slate-500">
         <div className="whitespace-nowrap">{formattedEventTimestamp}</div>
       </div>
     </div>
@@ -1044,7 +1047,7 @@ function ObjectTimeline({
 
   if (!timeline || timeline.length === 0) {
     return (
-      <div className="ml-8 text-sm text-muted-foreground">
+      <div className="ml-8 text-sm text-slate-500">
         {t("detail.noObjectDetailData")}
       </div>
     );
@@ -1105,17 +1108,17 @@ function ObjectTimeline({
   const activeLineHeight = calculateLineHeight();
 
   return (
-    <div className="-pb-2 relative mx-2">
-      <div className="absolute -top-2 bottom-2 left-2 z-0 w-0.5 -translate-x-1/2 bg-secondary-foreground" />
+    <div className="-pb-2 relative">
+      <div className="absolute -top-1 bottom-2 left-3.5 z-0 w-px -translate-x-1/2 bg-[#647184]/55" />
       {isWithinEventRange && (
         <div
           className={cn(
-            "absolute left-2 top-2 z-[5] max-h-[calc(100%-1rem)] w-0.5 -translate-x-1/2 bg-selected transition-all duration-300",
+            "absolute left-3.5 top-2 z-[5] max-h-[calc(100%-1rem)] w-px -translate-x-1/2 bg-[#5c78ff] transition-all duration-300",
           )}
           style={{ height: `${activeLineHeight}%` }}
         />
       )}
-      <div className="space-y-2">
+      <div className="space-y-1">
         {timeline.map((event, idx) => {
           const isActive =
             Math.abs((effectiveTime ?? 0) - (event.timestamp ?? 0)) <= 0.5;

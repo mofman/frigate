@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import GeneralSettings from "../menu/GeneralSettings";
 import AccountSettings from "../menu/AccountSettings";
 import { useMemo } from "react";
-import frigateLogo from "../../../frigate-redesign/logo.png";
+import frigateLogo from "@/assets/logo.svg";
 import useNavigation, {
   ID_EXPLORE,
   ID_EXPORT,

@@ -136,9 +136,15 @@ export default function ReviewCard({
     return "object";
   };
 
+  const isActive = activeReviewItem?.id == event.id;
+
   const content = (
     <div
-      className="relative flex w-full cursor-pointer flex-col gap-1.5"
+      className={cn(
+        "group relative flex w-full cursor-pointer flex-col gap-2 rounded-[4px] border border-[rgba(203,213,225,0.11)] bg-[#131820] p-2 shadow-[0_1px_0_rgba(255,255,255,0.03)] transition-colors hover:border-[rgba(169,182,186,0.28)] hover:bg-[#19212b]",
+        isActive &&
+          "border-[rgba(92,120,255,0.72)] bg-[#1a2540] shadow-[0_0_0_1px_rgba(92,120,255,0.35)] hover:border-[rgba(117,143,255,0.82)] hover:bg-[#202e52]",
+      )}
       onClick={onClick}
       onContextMenu={
         isDesktop
@@ -156,9 +162,7 @@ export default function ReviewCard({
       <img
         ref={imgRef}
         className={cn(
-          "size-full rounded-lg",
-          activeReviewItem?.id == event.id &&
-            "outline outline-[3px] -outline-offset-[2.8px] outline-selected duration-200",
+          "aspect-video size-full rounded-[4px] border border-[rgba(203,213,225,0.11)] bg-black object-cover",
           imgLoaded ? "visible" : "invisible",
         )}
         src={`${baseUrl}${event.thumb_path.replace("/media/frigate/", "")}`}
@@ -176,10 +180,10 @@ export default function ReviewCard({
           onImgLoad();
         }}
       />
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               <LuCircle
                 className={cn(
                   "size-2",
@@ -188,11 +192,11 @@ export default function ReviewCard({
                     : "fill-severity_detection text-severity_detection",
                 )}
               />
-              <div className="flex items-center gap-1">
+              <div className="flex shrink-0 items-center gap-1">
                 {event.data.objects.map((object, idx) => (
                   <div
                     key={`${object}-${idx}`}
-                    className="rounded-full bg-muted-foreground p-1"
+                    className="rounded-full bg-[#647184] p-1 text-white"
                   >
                     {getIconForLabel(object, "object", "size-3 text-white")}
                   </div>
@@ -200,13 +204,15 @@ export default function ReviewCard({
                 {event.data.audio.map((audio, idx) => (
                   <div
                     key={`${audio}-${idx}`}
-                    className="rounded-full bg-muted-foreground p-1"
+                    className="rounded-full bg-[#647184] p-1 text-white"
                   >
                     {getIconForLabel(audio, "audio", "size-3 text-white")}
                   </div>
                 ))}
               </div>
-              <div className="font-extra-light text-xs">{formattedDate}</div>
+              <div className="truncate font-mono text-xs font-medium text-slate-100">
+                {formattedDate}
+              </div>
             </div>
           </TooltipTrigger>
           <TooltipContent className="smart-capitalize">
@@ -227,16 +233,16 @@ export default function ReviewCard({
           </TooltipContent>
         </Tooltip>
         <TimeAgo
-          className="text-xs text-muted-foreground"
+          className="shrink-0 text-xs text-slate-500"
           time={event.start_time * 1000}
           dense
         />
       </div>
       {event.data.metadata?.title && (
         <GenAISummaryDialog review={event}>
-          <div className="flex items-center gap-1.5 rounded bg-secondary/50 hover:underline">
-            <MdAutoAwesome className="size-3 shrink-0 text-primary" />
-            <span className="truncate text-xs text-primary">
+          <div className="flex items-center gap-1.5 rounded-[4px] border border-[rgba(203,213,225,0.11)] bg-[#08090b]/70 px-2 py-1 hover:bg-[#222c38]">
+            <MdAutoAwesome className="size-3 shrink-0 text-[#7db7ff]" />
+            <span className="truncate text-xs text-slate-200">
               {event.data.metadata.title}
             </span>
           </div>

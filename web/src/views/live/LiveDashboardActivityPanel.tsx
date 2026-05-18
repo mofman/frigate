@@ -3,6 +3,7 @@ import { baseUrl } from "@/api/baseUrl";
 import TimeAgo from "@/components/dynamic/TimeAgo";
 import { useCameraPreviews } from "@/hooks/use-camera-previews";
 import { cn } from "@/lib/utils";
+import type { FrigateConfig } from "@/types/frigateConfig";
 import { REVIEW_PADDING, ReviewSegment, ThreatLevel } from "@/types/review";
 import { getTranslatedLabel } from "@/utils/i18n";
 import { getIconForLabel } from "@/utils/iconUtil";
@@ -10,8 +11,10 @@ import { formatList } from "@/utils/stringUtil";
 import axios from "axios";
 import { ArrowRight, Filter, Zap } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
+import useSWR from "swr";
 
 type LiveDashboardActivityPanelProps = {
   events: ReviewSegment[];
@@ -94,6 +97,7 @@ function ActivityItem({ event, selectedGroup }: ActivityItemProps) {
   const { t } = useTranslation(["views/events"]);
   const apiHost = useApiHost();
   const navigate = useNavigate();
+  const { data: config } = useSWR<FrigateConfig>("config");
 
   const label = useMemo(() => {
     if (event.data.metadata?.title) {
@@ -126,6 +130,18 @@ function ActivityItem({ event, selectedGroup }: ActivityItemProps) {
     event.severity === "alert" ||
     event.data.metadata?.potential_threat_level ===
       ThreatLevel.SECURITY_CONCERN;
+  const aspectRatio = useMemo(() => {
+    const detect = config?.cameras[event.camera]?.detect;
+
+    if (!detect?.width || !detect?.height) {
+      return "16 / 9";
+    }
+
+    return `${detect.width} / ${detect.height}`;
+  }, [config, event.camera]);
+  const activityAspectStyle = {
+    "--activity-aspect-ratio": aspectRatio,
+  } as CSSProperties;
 
   const onOpenReview = () => {
     const url =
@@ -148,9 +164,10 @@ function ActivityItem({ event, selectedGroup }: ActivityItemProps) {
   return (
     <button
       className={cn(
-        "group relative flex aspect-video w-[clamp(150px,22vw,220px)] shrink-0 overflow-hidden rounded-md border border-[rgba(203,213,225,0.11)] bg-[#111] text-left transition hover:border-[rgba(203,213,225,0.11)] hover:bg-[#111] min-[900px]:aspect-auto min-[900px]:w-full min-[900px]:gap-2 min-[900px]:border-transparent min-[900px]:bg-transparent min-[900px]:p-1.5 min-[900px]:hover:bg-[#19212b] xl:gap-3 xl:p-2",
+        "group relative flex aspect-[var(--activity-aspect-ratio)] w-[clamp(150px,22vw,220px)] shrink-0 overflow-hidden rounded-md border border-[rgba(203,213,225,0.11)] bg-[#111] text-left transition hover:border-[rgba(203,213,225,0.11)] hover:bg-[#111] min-[900px]:aspect-auto min-[900px]:w-full min-[900px]:gap-2 min-[900px]:border-transparent min-[900px]:bg-transparent min-[900px]:p-1.5 min-[900px]:hover:bg-[#19212b] xl:gap-3 xl:p-2",
         isAlert && "border-amber-400/20 bg-amber-400/5 hover:bg-amber-400/10",
       )}
+      style={activityAspectStyle}
       onClick={onOpenReview}
       onAuxClick={(e) => {
         if (e.button === 1) {
@@ -158,7 +175,9 @@ function ActivityItem({ event, selectedGroup }: ActivityItemProps) {
         }
       }}
     >
-      <div className="relative size-full overflow-hidden rounded-lg bg-black min-[900px]:h-[72px] min-[900px]:w-[112px] min-[900px]:shrink-0 min-[900px]:border min-[900px]:border-[rgba(203,213,225,0.11)] xl:h-[86px] xl:w-[138px]">
+      <div
+        className="relative size-full overflow-hidden rounded-lg bg-black min-[900px]:aspect-[var(--activity-aspect-ratio)] min-[900px]:h-auto min-[900px]:w-[112px] min-[900px]:shrink-0 min-[900px]:border min-[900px]:border-[rgba(203,213,225,0.11)] xl:w-[138px]"
+      >
         <ActivityPreview
           event={event}
           thumbnailUrl={thumbPath ? `${apiHost}${thumbPath}` : undefined}

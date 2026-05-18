@@ -1,5 +1,15 @@
 import ReviewCard from "@/components/card/ReviewCard";
 import ReviewFilterGroup from "@/components/filter/ReviewFilterGroup";
+import {
+  useAudioState,
+  useAudioTranscriptionState,
+  useAutotrackingState,
+  useDetectState,
+  useEnabledState,
+  useRecordingsState,
+  useSnapshotsState,
+} from "@/api/ws";
+import CameraFeatureToggle from "@/components/dynamic/CameraFeatureToggle";
 import DebugReplayDialog from "@/components/overlay/DebugReplayDialog";
 import ExportDialog from "@/components/overlay/ExportDialog";
 import ActionsDropdown from "@/components/overlay/ActionsDropdown";
@@ -12,11 +22,26 @@ import LivePlayer from "@/components/player/LivePlayer";
 import MotionReviewTimeline from "@/components/timeline/MotionReviewTimeline";
 import DetailStream from "@/components/timeline/DetailStream";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useOverlayState } from "@/hooks/use-overlay-state";
 import { useResizeObserver } from "@/hooks/resize-observer";
 import { ExportMode } from "@/types/filter";
-import { FrigateConfig } from "@/types/frigateConfig";
+import { CameraConfig, FrigateConfig } from "@/types/frigateConfig";
 import { Preview } from "@/types/preview";
 import {
   MotionData,
@@ -38,14 +63,27 @@ import {
 } from "react";
 import {
   isDesktop,
+  isFirefox,
+  isIOS,
   isMobile,
   isMobileOnly,
   isTablet,
 } from "react-device-detect";
 import { IoMdArrowRoundBack } from "react-icons/io";
+import {
+  FaCog,
+  FaCompress,
+  FaExpand,
+  FaMicrophone,
+  FaMicrophoneSlash,
+} from "react-icons/fa";
+import { GiSpeaker, GiSpeakerOff } from "react-icons/gi";
+import { LuPictureInPicture } from "react-icons/lu";
+import { TbCameraDown, TbRecordMail, TbRecordMailOff } from "react-icons/tb";
 import { useLocation, useNavigate } from "react-router-dom";
 import { TransformComponent, TransformWrapper } from "react-zoom-pan-pinch";
 import { Toaster } from "@/components/ui/sonner";
+import { toast } from "sonner";
 import useSWR from "swr";
 import { TimeRange, TimelineType } from "@/types/timeline";
 import MobileCameraDrawer from "@/components/overlay/MobileCameraDrawer";
@@ -54,7 +92,12 @@ import MobileReviewSettingsDrawer from "@/components/overlay/MobileReviewSetting
 import Logo from "@/components/Logo";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FaVideo } from "react-icons/fa";
-import { LivePlayerMode, VideoResolutionType } from "@/types/live";
+import {
+  LivePlayerError,
+  LivePlayerMode,
+  LiveStreamMetadata,
+  VideoResolutionType,
+} from "@/types/live";
 import {
   ASPECT_VERTICAL_LAYOUT,
   ASPECT_WIDE_LAYOUT,
@@ -63,8 +106,11 @@ import {
 } from "@/types/record";
 import { cn } from "@/lib/utils";
 import { useFullscreen } from "@/hooks/use-fullscreen";
+import { useIsAdmin } from "@/hooks/use-is-admin";
+import { useSessionPersistence } from "@/hooks/use-session-persistence";
 import { useTimezone } from "@/hooks/use-date-utils";
 import { useTimelineZoom } from "@/hooks/use-timeline-zoom";
+import { useUserPersistence } from "@/hooks/use-user-persistence";
 import { useTranslation } from "react-i18next";
 import { useTimelineUtils } from "@/hooks/use-timeline-utils";
 import { useCameraActivity } from "@/hooks/use-camera-activity";
@@ -82,9 +128,18 @@ import {
 } from "@/components/overlay/chip/GenAISummaryChip";
 import ShareTimestampDialog from "@/components/overlay/ShareTimestampDialog";
 import { shareOrCopy } from "@/utils/browserUtil";
+import { detectCameraAudioFeatures } from "@/utils/cameraUtil";
 import { createRecordingReviewUrl } from "@/utils/recordingReviewUrl";
 import { getIconForLabel } from "@/utils/iconUtil";
+import {
+  downloadSnapshot,
+  fetchCameraSnapshot,
+  generateSnapshotFilename,
+  grabVideoSnapshot,
+  SnapshotResult,
+} from "@/utils/snapshotUtil";
 import { User, Zap } from "lucide-react";
+import axios from "axios";
 
 const DATA_REFRESH_TIME = 600000; // 10 minutes
 const LIVE_EDGE_THRESHOLD = 5; // seconds
@@ -547,15 +602,130 @@ export function RecordingView({
     [config?.go2rtc.streams, getLiveStreamName],
   );
 
-  const preferredLiveMode = useMemo<LivePlayerMode>(
-    () => getPreferredLiveMode(mainCamera),
-    [getPreferredLiveMode, mainCamera],
-  );
-
   const liveStreamName = useMemo(
     () => getLiveStreamName(mainCamera),
     [getLiveStreamName, mainCamera],
   );
+
+  const mainCameraConfig = config?.cameras[mainCamera];
+
+  const [streamName, setStreamName, streamNameLoaded] =
+    useUserPersistence<string>(`${mainCamera}-stream`, liveStreamName);
+
+  useEffect(() => {
+    if (!streamNameLoaded || !mainCameraConfig) {
+      return;
+    }
+
+    const availableStreams = Object.values(mainCameraConfig.live.streams || {});
+    if (availableStreams.length === 0) {
+      return;
+    }
+
+    if (streamName == null || !availableStreams.includes(streamName)) {
+      setStreamName(availableStreams[0]);
+    }
+  }, [mainCameraConfig, setStreamName, streamName, streamNameLoaded]);
+
+  const selectedLiveStreamName = useMemo(() => {
+    if (!mainCameraConfig) {
+      return "";
+    }
+
+    const availableStreams = Object.values(mainCameraConfig.live.streams || {});
+
+    if (streamName && availableStreams.includes(streamName)) {
+      return streamName;
+    }
+
+    return liveStreamName;
+  }, [liveStreamName, mainCameraConfig, streamName]);
+
+  const isRestreamed = useMemo(
+    () =>
+      !!selectedLiveStreamName &&
+      Object.keys(config?.go2rtc.streams || {}).includes(
+        selectedLiveStreamName,
+      ),
+    [config?.go2rtc.streams, selectedLiveStreamName],
+  );
+
+  const { data: cameraMetadata } = useSWR<LiveStreamMetadata>(
+    isRestreamed ? `go2rtc/streams/${selectedLiveStreamName}` : null,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      revalidateIfStale: false,
+      dedupingInterval: 60000,
+    },
+  );
+
+  const { twoWayAudio: supports2WayTalk, audioOutput: supportsAudioOutput } =
+    useMemo(() => detectCameraAudioFeatures(cameraMetadata), [cameraMetadata]);
+
+  const [audio, setAudio] = useSessionPersistence("liveAudio", false);
+  const [mic, setMic] = useState(false);
+  const [pip, setPip] = useState(false);
+  const [webRTC, setWebRTC] = useState(false);
+  const [lowBandwidth, setLowBandwidth] = useState(false);
+  const [playInBackground, setPlayInBackground] = useUserPersistence<boolean>(
+    `${mainCamera}-background-play`,
+    false,
+  );
+  const [showStats, setShowStats] = useState(false);
+
+  useEffect(() => {
+    const updatePip = () => setPip(document.pictureInPictureElement != null);
+
+    updatePip();
+    document.addEventListener("enterpictureinpicture", updatePip);
+    document.addEventListener("leavepictureinpicture", updatePip);
+
+    return () => {
+      document.removeEventListener("enterpictureinpicture", updatePip);
+      document.removeEventListener("leavepictureinpicture", updatePip);
+    };
+  }, []);
+
+  const handleLivePlayerError = useCallback(
+    (error: LivePlayerError) => {
+      if (!error) {
+        return;
+      }
+
+      if (!webRTC && config && config.go2rtc?.webrtc?.candidates?.length > 0) {
+        setWebRTC(true);
+      } else {
+        setWebRTC(false);
+        setLowBandwidth(true);
+      }
+    },
+    [config, webRTC],
+  );
+
+  const preferredLiveMode = useMemo<LivePlayerMode>(() => {
+    if (mic) {
+      return "webrtc";
+    }
+
+    if (webRTC && isRestreamed) {
+      return "webrtc";
+    }
+
+    if (webRTC && !isRestreamed) {
+      return "jsmpeg";
+    }
+
+    if (lowBandwidth) {
+      return "jsmpeg";
+    }
+
+    if (!("MediaSource" in window || "ManagedMediaSource" in window)) {
+      return "webrtc";
+    }
+
+    return isRestreamed ? "mse" : "jsmpeg";
+  }, [isRestreamed, lowBandwidth, mic, webRTC]);
 
   const preferredPreviewLiveModes = useMemo(() => {
     const modes: Record<string, LivePlayerMode> = {};
@@ -577,7 +747,6 @@ export function RecordingView({
     return streamNames;
   }, [effectiveCameras, getLiveStreamName]);
 
-  const mainCameraConfig = config?.cameras[mainCamera];
   const { activeMotion, activeTracking, objects } =
     useCameraActivity(mainCameraConfig);
   const primaryObject = objects.find((object) => !object.stationary);
@@ -742,6 +911,10 @@ export function RecordingView({
   const toolbarIconClass = "size-4 text-[#647184]";
   const toolbarActiveClass =
     "border-[rgba(92,120,255,0.55)] bg-[#1a2540] text-slate-100 hover:border-[rgba(117,143,255,0.72)] hover:bg-[#202e52]";
+  const toolbarToggleGroupClass =
+    "*:h-[34px] *:rounded-[4px] *:border *:border-[rgba(203,213,225,0.11)] *:bg-[#131820] *:px-3 *:py-0 *:text-sm *:font-medium *:text-slate-500 *:transition-colors hover:*:border-[rgba(169,182,186,0.28)] hover:*:bg-[#222c38] hover:*:text-slate-100";
+  const toolbarToggleActiveClass =
+    "data-[state=on]:border-[rgba(92,120,255,0.55)] data-[state=on]:bg-[#1a2540] data-[state=on]:text-slate-100 data-[state=on]:hover:border-[rgba(117,143,255,0.72)] data-[state=on]:hover:bg-[#202e52]";
 
   return (
     <DetailStreamProvider
@@ -907,7 +1080,7 @@ export function RecordingView({
             )}
             {isDesktop ? (
               <ToggleGroup
-                className="*:h-[34px] *:rounded-[4px] *:border *:border-[rgba(203,213,225,0.11)] *:bg-[#131820] *:px-3 *:py-0 *:text-sm *:font-medium *:text-slate-500 *:transition-colors hover:*:border-[rgba(169,182,186,0.28)] hover:*:bg-[#222c38] hover:*:text-slate-100"
+                className={toolbarToggleGroupClass}
                 type="single"
                 size="sm"
                 value={timelineType}
@@ -916,21 +1089,21 @@ export function RecordingView({
                 } // don't allow the severity to be unselected
               >
                 <ToggleGroupItem
-                  className={`${timelineType == "timeline" ? "border-[rgba(92,120,255,0.55)] bg-[#1a2540] text-slate-100" : ""}`}
+                  className={toolbarToggleActiveClass}
                   value="timeline"
                   aria-label={t("timeline.aria")}
                 >
                   <div className="">{t("timeline.label")}</div>
                 </ToggleGroupItem>
                 <ToggleGroupItem
-                  className={`${timelineType == "events" ? "border-[rgba(92,120,255,0.55)] bg-[#1a2540] text-slate-100" : ""}`}
+                  className={toolbarToggleActiveClass}
                   value="events"
                   aria-label={t("events.aria")}
                 >
                   <div className="">{t("events.label")}</div>
                 </ToggleGroupItem>
                 <ToggleGroupItem
-                  className={`${timelineType == "detail" ? "border-[rgba(92,120,255,0.55)] bg-[#1a2540] text-slate-100" : ""}`}
+                  className={toolbarToggleActiveClass}
                   value="detail"
                   aria-label="Detail Stream"
                 >
@@ -985,7 +1158,7 @@ export function RecordingView({
             className={cn(
               "flex flex-1 flex-wrap overflow-hidden",
               isDesktop
-                ? "min-w-0 px-4"
+                ? "min-w-0 px-4 py-4"
                 : "portrait:max-h-[50dvh] portrait:flex-shrink-0 portrait:flex-grow-0 portrait:basis-auto",
             )}
           >
@@ -999,6 +1172,7 @@ export function RecordingView({
             >
               <div
                 key={mainCamera}
+                id="player-container"
                 className={cn(
                   "relative flex max-h-full min-h-0 min-w-0 max-w-full items-center justify-center overflow-hidden rounded-lg border border-[rgba(203,213,225,0.11)] bg-[#131820] shadow-[0_1px_0_rgba(255,255,255,0.03)] transition",
                   playbackMode == "live" &&
@@ -1060,17 +1234,46 @@ export function RecordingView({
                           showStillWithoutActivity={false}
                           alwaysShowCameraName={false}
                           cameraConfig={config.cameras[mainCamera]}
-                          playAudio={false}
-                          playInBackground={false}
+                          playAudio={audio}
+                          playInBackground={playInBackground ?? false}
+                          showStats={showStats}
+                          micEnabled={mic}
                           preferredLiveMode={preferredLiveMode}
                           useWebGL={true}
-                          streamName={liveStreamName}
+                          streamName={selectedLiveStreamName}
+                          pip={pip}
                           containerRef={mainLayoutRef}
                           setFullResolution={setFullResolution}
+                          onError={handleLivePlayerError}
                           hideActivityIndicator
                         />
                       </TransformComponent>
                     </TransformWrapper>
+                    {mainCameraConfig && (
+                      <UnifiedLiveControls
+                        camera={mainCameraConfig}
+                        fullscreen={fullscreen}
+                        supportsFullscreen={supportsFullScreen}
+                        toggleFullscreen={toggleFullscreen}
+                        preferredLiveMode={preferredLiveMode}
+                        streamName={selectedLiveStreamName}
+                        setStreamName={setStreamName}
+                        isRestreamed={isRestreamed}
+                        supportsAudioOutput={supportsAudioOutput}
+                        supports2WayTalk={supports2WayTalk}
+                        audio={audio ?? false}
+                        setAudio={setAudio}
+                        mic={mic}
+                        setMic={setMic}
+                        pip={pip}
+                        setPip={setPip}
+                        playInBackground={playInBackground ?? false}
+                        setPlayInBackground={setPlayInBackground}
+                        showStats={showStats}
+                        setShowStats={setShowStats}
+                        setLowBandwidth={setLowBandwidth}
+                      />
+                    )}
                     {hasLiveActivity && liveActivityLabel && (
                       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex items-end justify-between bg-gradient-to-t from-[rgba(5,8,10,0.82)] to-transparent px-3 py-2">
                         <div className="flex min-w-0 gap-1.5">
@@ -1253,6 +1456,466 @@ export function RecordingView({
   );
 }
 
+type UnifiedLiveControlsProps = {
+  camera: CameraConfig;
+  fullscreen: boolean;
+  supportsFullscreen: boolean;
+  toggleFullscreen: () => void;
+  preferredLiveMode: LivePlayerMode;
+  streamName: string;
+  setStreamName: (value: string | undefined) => void;
+  isRestreamed: boolean;
+  supportsAudioOutput: boolean;
+  supports2WayTalk: boolean;
+  audio: boolean;
+  setAudio: (value: boolean) => void;
+  mic: boolean;
+  setMic: (value: boolean) => void;
+  pip: boolean;
+  setPip: (value: boolean) => void;
+  playInBackground: boolean;
+  setPlayInBackground: (value: boolean | undefined) => void;
+  showStats: boolean;
+  setShowStats: (value: boolean) => void;
+  setLowBandwidth: React.Dispatch<React.SetStateAction<boolean>>;
+};
+
+function UnifiedLiveControls({
+  camera,
+  fullscreen,
+  supportsFullscreen,
+  toggleFullscreen,
+  preferredLiveMode,
+  streamName,
+  setStreamName,
+  isRestreamed,
+  supportsAudioOutput,
+  supports2WayTalk,
+  audio,
+  setAudio,
+  mic,
+  setMic,
+  pip,
+  setPip,
+  playInBackground,
+  setPlayInBackground,
+  showStats,
+  setShowStats,
+  setLowBandwidth,
+}: UnifiedLiveControlsProps) {
+  const { t } = useTranslation(["views/live", "components/dialog", "common"]);
+  const { payload: enabledState } = useEnabledState(camera.name);
+  const cameraEnabled = enabledState == "ON";
+  const [isSnapshotLoading, setIsSnapshotLoading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const recordingEventIdRef = useRef<string | null>(null);
+  const activeToastIdRef = useRef<string | number | null>(null);
+
+  const createEvent = useCallback(async () => {
+    try {
+      const response = await axios.post(
+        `events/${camera.name}/on_demand/create`,
+        {
+          include_recording: true,
+          duration: null,
+        },
+      );
+
+      if (response.data.success) {
+        recordingEventIdRef.current = response.data.event_id;
+        setIsRecording(true);
+        activeToastIdRef.current = toast.success(t("manualRecording.started"), {
+          position: "top-center",
+          duration: 10000,
+        });
+      }
+    } catch {
+      toast.error(t("manualRecording.failedToStart"), {
+        position: "top-center",
+      });
+    }
+  }, [camera.name, t]);
+
+  const endEvent = useCallback(() => {
+    if (activeToastIdRef.current) {
+      toast.dismiss(activeToastIdRef.current);
+      activeToastIdRef.current = null;
+    }
+
+    try {
+      if (recordingEventIdRef.current) {
+        axios.put(`events/${recordingEventIdRef.current}/end`, {
+          end_time: Math.ceil(Date.now() / 1000),
+        });
+        recordingEventIdRef.current = null;
+        setIsRecording(false);
+        toast.success(t("manualRecording.ended"), {
+          position: "top-center",
+        });
+      }
+    } catch {
+      toast.error(t("manualRecording.failedToEnd"), {
+        position: "top-center",
+      });
+    }
+  }, [t]);
+
+  useEffect(() => {
+    return () => {
+      if (recordingEventIdRef.current) {
+        endEvent();
+      }
+    };
+  }, [endEvent]);
+
+  const handleEventButtonClick = useCallback(() => {
+    if (isRecording) {
+      endEvent();
+    } else {
+      createEvent();
+    }
+  }, [createEvent, endEvent, isRecording]);
+
+  const handleSnapshotClick = useCallback(async () => {
+    setIsSnapshotLoading(true);
+
+    try {
+      let result: SnapshotResult;
+
+      if (isRestreamed && preferredLiveMode !== "jsmpeg") {
+        result = await grabVideoSnapshot();
+      } else {
+        result = await fetchCameraSnapshot(camera.name);
+      }
+
+      if (result.success) {
+        const filename = generateSnapshotFilename(camera.name);
+        downloadSnapshot(result.data.dataUrl, filename);
+        toast.success(t("snapshot.downloadStarted"));
+      } else {
+        toast.error(t("snapshot.captureFailed"));
+      }
+    } finally {
+      setIsSnapshotLoading(false);
+    }
+  }, [camera.name, isRestreamed, preferredLiveMode, t]);
+
+  return (
+    <div className="absolute right-3 top-3 z-40 flex max-w-[calc(100%-8rem)] flex-wrap justify-end gap-2">
+      {supportsFullscreen && (
+        <CameraFeatureToggle
+          variant={fullscreen ? "overlay" : "primary"}
+          Icon={fullscreen ? FaCompress : FaExpand}
+          isActive={fullscreen}
+          title={
+            fullscreen
+              ? t("button.close", { ns: "common" })
+              : t("button.fullscreen", { ns: "common" })
+          }
+          onClick={toggleFullscreen}
+        />
+      )}
+      {!isIOS && !isFirefox && preferredLiveMode != "jsmpeg" && (
+        <CameraFeatureToggle
+          variant={fullscreen ? "overlay" : "primary"}
+          Icon={LuPictureInPicture}
+          isActive={pip}
+          title={
+            pip
+              ? t("button.close", { ns: "common" })
+              : t("button.pictureInPicture", { ns: "common" })
+          }
+          onClick={() => {
+            if (pip) {
+              document.exitPictureInPicture();
+              setPip(false);
+            } else {
+              setPip(true);
+            }
+          }}
+          disabled={!cameraEnabled}
+        />
+      )}
+      {supports2WayTalk && (
+        <CameraFeatureToggle
+          variant={fullscreen ? "overlay" : "primary"}
+          Icon={mic ? FaMicrophone : FaMicrophoneSlash}
+          isActive={mic}
+          title={
+            mic
+              ? t("twoWayTalk.disable", { ns: "views/live" })
+              : t("twoWayTalk.enable", { ns: "views/live" })
+          }
+          onClick={() => {
+            setMic(!mic);
+            if (!mic && !audio) {
+              setAudio(true);
+            }
+          }}
+          disabled={!cameraEnabled}
+        />
+      )}
+      {supportsAudioOutput && preferredLiveMode != "jsmpeg" && (
+        <CameraFeatureToggle
+          variant={fullscreen ? "overlay" : "primary"}
+          Icon={audio ? GiSpeaker : GiSpeakerOff}
+          isActive={audio}
+          title={
+            audio
+              ? t("cameraAudio.disable", { ns: "views/live" })
+              : t("cameraAudio.enable", { ns: "views/live" })
+          }
+          onClick={() => setAudio(!audio)}
+          disabled={!cameraEnabled}
+        />
+      )}
+      <CameraFeatureToggle
+        className={cn(
+          isRecording && "animate-pulse bg-red-500 hover:bg-red-600",
+        )}
+        variant={fullscreen ? "overlay" : "primary"}
+        Icon={isRecording ? TbRecordMail : TbRecordMailOff}
+        isActive={isRecording}
+        title={t("manualRecording." + (isRecording ? "stop" : "start"))}
+        onClick={handleEventButtonClick}
+        disabled={!cameraEnabled}
+      />
+      <CameraFeatureToggle
+        variant={fullscreen ? "overlay" : "primary"}
+        Icon={TbCameraDown}
+        isActive={false}
+        title={t("snapshot.takeSnapshot")}
+        onClick={handleSnapshotClick}
+        disabled={!cameraEnabled || isSnapshotLoading}
+        loading={isSnapshotLoading}
+      />
+      <UnifiedLiveSettingsMenu
+        camera={camera}
+        fullscreen={fullscreen}
+        streamName={streamName}
+        setStreamName={setStreamName}
+        isRestreamed={isRestreamed}
+        cameraEnabled={cameraEnabled}
+        playInBackground={playInBackground}
+        setPlayInBackground={setPlayInBackground}
+        showStats={showStats}
+        setShowStats={setShowStats}
+        setLowBandwidth={setLowBandwidth}
+      />
+    </div>
+  );
+}
+
+type UnifiedLiveSettingsMenuProps = {
+  camera: CameraConfig;
+  fullscreen: boolean;
+  streamName: string;
+  setStreamName: (value: string | undefined) => void;
+  isRestreamed: boolean;
+  cameraEnabled: boolean;
+  playInBackground: boolean;
+  setPlayInBackground: (value: boolean | undefined) => void;
+  showStats: boolean;
+  setShowStats: (value: boolean) => void;
+  setLowBandwidth: React.Dispatch<React.SetStateAction<boolean>>;
+};
+
+function UnifiedLiveSettingsMenu({
+  camera,
+  fullscreen,
+  streamName,
+  setStreamName,
+  isRestreamed,
+  cameraEnabled,
+  playInBackground,
+  setPlayInBackground,
+  showStats,
+  setShowStats,
+  setLowBandwidth,
+}: UnifiedLiveSettingsMenuProps) {
+  const { t } = useTranslation(["views/live", "components/dialog"]);
+  const isAdmin = useIsAdmin();
+  const { payload: detectState, send: sendDetect } = useDetectState(
+    camera.name,
+  );
+  const { payload: enabledState, send: sendEnabled } = useEnabledState(
+    camera.name,
+  );
+  const { payload: recordState, send: sendRecord } = useRecordingsState(
+    camera.name,
+  );
+  const { payload: snapshotState, send: sendSnapshot } = useSnapshotsState(
+    camera.name,
+  );
+  const { payload: audioState, send: sendAudio } = useAudioState(camera.name);
+  const { payload: autotrackingState, send: sendAutotracking } =
+    useAutotrackingState(camera.name);
+  const { payload: transcriptionState, send: sendTranscription } =
+    useAudioTranscriptionState(camera.name);
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger>
+        <div
+          className={cn(
+            "flex h-[34px] w-[34px] flex-col items-center justify-center rounded-[4px] transition-colors",
+            fullscreen
+              ? "border border-[rgba(203,213,225,0.11)] bg-[rgba(19,24,32,0.82)] text-[#647184] backdrop-blur-xl hover:border-[rgba(169,182,186,0.28)] hover:bg-[#222c38] hover:text-slate-100"
+              : "border border-[rgba(203,213,225,0.11)] bg-[#131820] text-[#647184] hover:border-[rgba(169,182,186,0.28)] hover:bg-[#222c38] hover:text-slate-100",
+          )}
+        >
+          <FaCog className="size-4 text-current" />
+        </div>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="max-w-96">
+        <div className="flex flex-col gap-5 p-4">
+          {isAdmin && (
+            <div className="flex flex-col gap-3">
+              <Label>
+                {t("cameraSettings.title", { camera: camera.name })}
+              </Label>
+              <SettingSwitch
+                label={t("cameraSettings.cameraEnabled")}
+                checked={enabledState == "ON"}
+                onChange={() =>
+                  sendEnabled(enabledState == "ON" ? "OFF" : "ON")
+                }
+              />
+              <SettingSwitch
+                label={t("cameraSettings.objectDetection")}
+                checked={detectState == "ON"}
+                onChange={() => sendDetect(detectState == "ON" ? "OFF" : "ON")}
+                disabled={!cameraEnabled}
+              />
+              <SettingSwitch
+                label={t("cameraSettings.recording")}
+                checked={recordState == "ON"}
+                onChange={() => sendRecord(recordState == "ON" ? "OFF" : "ON")}
+                disabled={!cameraEnabled || !camera.record.enabled_in_config}
+              />
+              <SettingSwitch
+                label={t("cameraSettings.snapshots")}
+                checked={snapshotState == "ON"}
+                onChange={() =>
+                  sendSnapshot(snapshotState == "ON" ? "OFF" : "ON")
+                }
+                disabled={!cameraEnabled}
+              />
+              {camera.audio.enabled_in_config && (
+                <SettingSwitch
+                  label={t("cameraSettings.audioDetection")}
+                  checked={audioState == "ON"}
+                  onChange={() => sendAudio(audioState == "ON" ? "OFF" : "ON")}
+                  disabled={!cameraEnabled}
+                />
+              )}
+              {camera.audio.enabled_in_config &&
+                camera.audio_transcription.enabled_in_config && (
+                  <SettingSwitch
+                    label={t("cameraSettings.transcription")}
+                    checked={transcriptionState == "ON"}
+                    onChange={() =>
+                      sendTranscription(
+                        transcriptionState == "ON" ? "OFF" : "ON",
+                      )
+                    }
+                    disabled={!cameraEnabled || audioState == "OFF"}
+                  />
+                )}
+              {camera.onvif.autotracking.enabled_in_config && (
+                <SettingSwitch
+                  label={t("cameraSettings.autotracking")}
+                  checked={autotrackingState == "ON"}
+                  onChange={() =>
+                    sendAutotracking(autotrackingState == "ON" ? "OFF" : "ON")
+                  }
+                  disabled={!cameraEnabled}
+                />
+              )}
+            </div>
+          )}
+          {isRestreamed && Object.values(camera.live.streams).length > 0 && (
+            <div className="flex flex-col gap-2">
+              <Label>{t("stream.title")}</Label>
+              <Select value={streamName} onValueChange={setStreamName}>
+                <SelectTrigger className="w-full">
+                  <SelectValue>
+                    {Object.keys(camera.live.streams).find(
+                      (key) => camera.live.streams[key] === streamName,
+                    )}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {Object.entries(camera.live.streams).map(
+                      ([stream, name]) => (
+                        <SelectItem
+                          key={stream}
+                          className="cursor-pointer"
+                          value={name}
+                        >
+                          {stream}
+                        </SelectItem>
+                      ),
+                    )}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {isRestreamed && (
+            <SettingSwitch
+              label={t("stream.playInBackground.label")}
+              checked={playInBackground}
+              onChange={setPlayInBackground}
+            />
+          )}
+          <SettingSwitch
+            label={t("streaming.showStats.label", {
+              ns: "components/dialog",
+            })}
+            checked={showStats}
+            onChange={setShowStats}
+          />
+          <Button
+            className="w-full"
+            variant="outline"
+            size="sm"
+            onClick={() => setLowBandwidth(false)}
+          >
+            {t("stream.lowBandwidth.resetStream")}
+          </Button>
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+type SettingSwitchProps = {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  disabled?: boolean;
+};
+
+function SettingSwitch({
+  label,
+  checked,
+  onChange,
+  disabled = false,
+}: SettingSwitchProps) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <Label className="mx-0 text-sm text-primary">{label}</Label>
+      <Switch
+        disabled={disabled}
+        checked={checked}
+        onCheckedChange={onChange}
+      />
+    </div>
+  );
+}
+
 type TimelineProps = {
   contentRef: MutableRefObject<HTMLDivElement | null>;
   timelineRef?: MutableRefObject<HTMLDivElement | null>;
@@ -1408,7 +2071,7 @@ function Timeline({
         </GenAISummaryDialog>
       )}
 
-      {timelineType != "detail" && (
+      {timelineType != "detail" && timelineType != "events" && (
         <>
           <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-[30px] w-full bg-gradient-to-b from-secondary to-transparent"></div>
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-[30px] w-full bg-gradient-to-t from-secondary to-transparent"></div>
@@ -1455,15 +2118,15 @@ function Timeline({
           isPlaying={isPlaying}
         />
       ) : (
-        <div className="scrollbar-container h-full overflow-auto bg-secondary">
+        <div className="scrollbar-container h-full overflow-auto border-l border-[rgba(203,213,225,0.11)] bg-[rgba(13,17,20,0.92)]">
           <div
             className={cn(
-              "scrollbar-container grid h-auto grid-cols-1 gap-4 overflow-auto p-4",
+              "scrollbar-container grid h-auto grid-cols-1 gap-3 overflow-auto p-3",
               isMobile && "sm:portrait:grid-cols-2",
             )}
           >
             {mainCameraReviewItems.length === 0 ? (
-              <div className="mt-5 text-center text-primary">
+              <div className="mt-5 rounded-[4px] border border-[rgba(203,213,225,0.11)] bg-[#131820] px-4 py-8 text-center text-sm text-slate-500">
                 {t("events.noFoundForTimePeriod")}
               </div>
             ) : (
